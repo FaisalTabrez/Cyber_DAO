@@ -5,7 +5,8 @@ export const SecureTreasuryABI = [
   "function paused() view returns (bool)",
   "function circuitBreaker() external",
   "function unpause() external",
-  "function transfer(address to, uint256 amount) external"
+  "function transfer(address to, uint256 amount) external",
+  "function withdraw(address to, uint256 amount) external"
 ] as const;
 
 export const DAOGovernorABI = [
@@ -22,5 +23,6 @@ export const DAOGovernorABI = [
 export const GovernanceTokenABI = [
   "function totalSupply() view returns (uint256)",
   "function getVotes(address account) view returns (uint256)",
+  "function balanceOf(address account) view returns (uint256)",
   "function delegates(address account) view returns (address)",
 ] as const;
