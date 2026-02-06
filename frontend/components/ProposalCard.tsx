@@ -75,10 +75,12 @@ export default function ProposalCard({
   const isActive = proposalState === "Active";
   const isSucceeded = proposalState === "Succeeded";
   
+  const votesDataArray = votesData as unknown as [bigint, bigint, bigint] | undefined;
+
   const votes = {
-    against: votesData ? parseFloat(formatEther(votesData[0])) : 0,
-    for: votesData ? parseFloat(formatEther(votesData[1])) : 0,
-    abstain: votesData ? parseFloat(formatEther(votesData[2])) : 0,
+    against: votesDataArray ? parseFloat(formatEther(votesDataArray[0])) : 0,
+    for: votesDataArray ? parseFloat(formatEther(votesDataArray[1])) : 0,
+    abstain: votesDataArray ? parseFloat(formatEther(votesDataArray[2])) : 0,
   };
   
   const totalVotes = votes.for + votes.against + votes.abstain;

@@ -95,7 +95,7 @@ export default function GovernanceAnalytics() {
                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                      </Pie>
-                     <RechartsTooltip formatter={(value: number) => `${value.toFixed(2)} Tokens`} />
+                     <RechartsTooltip formatter={(value: number | undefined) => `${value?.toFixed(2) ?? "0.00"} Tokens`} />
                      <Legend verticalAlign="bottom" height={36}/>
                   </PieChart>
                </ResponsiveContainer>
@@ -124,8 +124,8 @@ export default function GovernanceAnalytics() {
                       <p className="text-xs font-bold text-blue-800">Governance Status</p>
                       <p className="text-xs text-blue-600 mt-1">
                          {isWhale 
-                            ? "í°‹ Major Stakeholder: Your vote significantly impacts protocol direction." 
-                            : "í°Ÿ Minor Stakeholder: Coordinate with others to pass proposals."}
+                            ? "ï¿½ï¿½ï¿½ Major Stakeholder: Your vote significantly impacts protocol direction." 
+                            : "ï¿½ï¿½ï¿½ Minor Stakeholder: Coordinate with others to pass proposals."}
                       </p>
                    </div>
                 </div>

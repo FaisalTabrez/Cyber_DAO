@@ -82,7 +82,8 @@ export default function SecurityTerminal() {
     eventName: 'ProposalCreated',
     onLogs(newLogs) {
       newLogs.forEach(log => {
-         addLog(`New Governance Proposal Detected: ${log.transactionHash.slice(0, 8)}`, 'warning');
+         const hash = log.transactionHash as string | null;
+         addLog(`New Governance Proposal Detected: ${hash ? hash.slice(0, 8) : 'Unknown'}`, 'warning');
       });
     },
     enabled: !!GOVERNOR_ADDRESS
