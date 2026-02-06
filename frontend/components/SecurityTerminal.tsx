@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useBalance } from "wagmi";
-import { formatEther, Log } from "viem";
+import { useAccount, useReadContract, useWriteContract, useWatchContractEvent, useBalance } from "wagmi";
+import { formatEther } from "viem";
 import { SecureTreasuryABI, DAOGovernorABI } from "../lib/abis/contracts";
 import deployedAddresses from "../src/deployed-addresses.json";
-import { Terminal, ShieldAlert, Lock, Unlock, Activity, AlertTriangle, Fingerprint } from "lucide-react";
+import { Terminal, ShieldAlert, Lock, Unlock, Activity, AlertOctagon, Power, FileWarning } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -23,27 +23,28 @@ interface SecurityLog {
 export default function SecurityTerminal() {
   const { address } = useAccount();
   const [logs, setLogs] = useState<SecurityLog[]>([
-    { id: 'init-1', timestamp: new Date().toLocaleTimeString(), message: "Security Protocols Initialized...", type: 'info' },
-    { id: 'init-2', timestamp: new Date().toLocaleTimeString(), message: "Monitoring Active Channels...", type: 'info' }
+    { id: '1', timestamp: new Date().toLocaleTimeString(), message: "Guardian Node: Online", type: 'success' },
+    { id: '2', timestamp: new Date().toLocaleTimeString(), message: "Scanning Mempool for Threats...", type: 'info' },
   ]);
+  const [isArmed, setIsArmed] = useState(false);
+  const [shake, setShake] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Addresses
   const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
   const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
 
-  // 1. Data Fetching
-  const { data: isPausedData, refetch: refetchPaused } = useReadContract({
+  // 1. System State
+  const { data: isPausedData } = useReadContract({
     address: TREASURY_ADDRESS,
     abi: SecureTreasuryABI,
     functionName: "paused",
+    query: { refetchInterval: 2000 }
   });
   const isPaused = isPausedData as boolean;
 
-  const { data: balanceData } = useBalance({
-    address: TREASURY_ADDRESS,
-  });
-  
+  // 2. Metrics
+  const { data: balanceData } = useBalance({ address: TREASURY_ADDRESS });
   const { data: dailyLimitData } = useReadContract({
     address: TREASURY_ADDRESS,
     abi: SecureTreasuryABI,
@@ -52,247 +53,215 @@ export default function SecurityTerminal() {
 
   const dailyLimit = dailyLimitData ? parseFloat(formatEther(dailyLimitData as bigint)) : 0;
   const balance = balanceData ? parseFloat(formatEther(balanceData.value)) : 0;
-  
-  const securityScore = isPaused ? 0 : (dailyLimit > 0 ? (balance / dailyLimit) : 0);
+  const coverage = dailyLimit > 0 ? (balance / dailyLimit) : 0;
 
-  // 2. Event Watching
+  // 3. Write Config
+  const { writeContract, isPending } = useWriteContract();
+
+  // 4. Log Management
+  const addLog = useCallback((message: string, type: SecurityLog['type'] = 'info') => {
+    setLogs(prev => {
+      const newLogs = [...prev, {
+        id: Math.random().toString(36).substr(2, 9),
+        timestamp: new Date().toLocaleTimeString(),
+        message,
+        type
+      }];
+      return newLogs.slice(-10); // Keep last 10
+    });
+  }, []);
+
+  // 5. Watchers
   useWatchContractEvent({
     address: GOVERNOR_ADDRESS,
     abi: DAOGovernorABI,
     eventName: 'ProposalCreated',
     onLogs(newLogs) {
-      newLogs.forEach((log) => {
-        // Decode generic Log args if possible, but Wagmi 2 logs come parsed in `args` usually if strict.
-        // However, `onLogs` gives raw logs array mostly unless using `useContractEvent` (Wagmi V1) vs V2.
-        // Wagmi v2 `useWatchContractEvent` provides `onLogs`.
-        // Let's assume we can try to extract info.
-        // Since we can't easily parse without helper, we'll just log "New Proposal Detected".
-        // In a real app we'd parse `log.args`.
-        
-        // Mocking the detection logic based on log existence for visual demo
-        const isHighRisk = Math.random() > 0.5; // Visual simulation of logic since we can't inspect args deeply without `args` typing
-        
-        addLog(
-          `Proposal Event Detected: ${log.transactionHash.slice(0,8)}...`,
-          isHighRisk ? 'critical' : 'info'
-        );
-        if (isHighRisk) {
-           addLog(`⚠️ HIGH RISK: Proposal targets Treasury Logic`, 'critical');
-        }
+      newLogs.forEach(log => {
+         addLog(`New Governance Proposal Detected: ${log.transactionHash.slice(0, 8)}`, 'warning');
       });
     },
   });
 
-  const addLog = (message: string, type: SecurityLog['type'] = 'info') => {
-    setLogs(prev => [
-      ...prev.slice(-19), // Keep last 20
-      {
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: new Date().toLocaleTimeString(),
-        message,
-        type
-      }
-    ]);
-  };
-
-  // 3. Panic Button Logic (Hold to Execute)
-  const [holding, setHolding] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const HOLD_DURATION = 1500; // ms
-
-  // Write Actions
-  const { writeContract, isPending } = useWriteContract();
-
-  const handlePanic = useCallback(() => {
-    if (isPaused) {
-      writeContract({
-        address: TREASURY_ADDRESS,
-        abi: SecureTreasuryABI,
-        functionName: "unpause",
-      }, {
-        onSuccess: () => addLog("SYSTEM UNPAUSED. RESUMING OPERATIONS.", 'success'),
-        onError: (err) => addLog(`ERROR: ${err.message}`, 'critical')
-      });
-    } else {
-      writeContract({
-        address: TREASURY_ADDRESS,
-        abi: SecureTreasuryABI,
-        functionName: "circuitBreaker",
-      }, {
-        onSuccess: () => addLog("CIRCUIT BREAKER TRIGGERED. SYSTEM HALTED.", 'critical'),
-        onError: (err) => addLog(`ERROR: ${err.message}`, 'critical')
-      });
-    }
-  }, [isPaused, TREASURY_ADDRESS, writeContract]);
-
+  // Effect: Shake on Pause Trigger
   useEffect(() => {
-    if (holding) {
-      const startTime = Date.now();
-      timerRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const newProgress = Math.min((elapsed / HOLD_DURATION) * 100, 100);
-        setProgress(newProgress);
-        
-        if (newProgress >= 100) {
-          clearInterval(timerRef.current!);
-          setHolding(false);
-          setProgress(0);
-          handlePanic();
-        }
-      }, 50);
-    } else {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setProgress(0);
+    if (isPaused) {
+      setShake(true);
+      const timer = setTimeout(() => setShake(false), 1000);
+      return () => clearTimeout(timer);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [holding, handlePanic]);
+  }, [isPaused]);
 
-
-  // Auto-scroll logs
+  // Effect: Auto-scroll
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  // Security Score Calc
-  // "Security Score based on coverage ratio"
-  // For visual purposes, let's calculate a simpler metric if we can't easily get ETH Balance here without extra hook.
-  // Actually, I can import useBalance.
-  // But to save imports/complexity, I'll assume we pass it or just mock the *calculation* with dummy data 
-  // Wait, I should do it right.
-  // I will add `useBalance`.
-  
+
+  const executeSecurityProtocol = () => {
+    if (isPaused) {
+       // Resume
+       writeContract({
+          address: TREASURY_ADDRESS,
+          abi: SecureTreasuryABI,
+          functionName: "unpause", 
+       }, {
+         onSuccess: () => {
+           addLog("Resuming Operations...", "success");
+           setIsArmed(false);
+         },
+         onError: (e) => addLog(`Resume Failed: ${e.message.slice(0, 20)}`, 'critical')
+       });
+    } else {
+       // PAUSE (Circuit Breaker)
+       writeContract({
+          address: TREASURY_ADDRESS,
+          abi: SecureTreasuryABI,
+          functionName: "circuitBreaker",
+       }, {
+         onSuccess: () => addLog("CIRCUIT BREAKER ACTIVATED", "critical"),
+         onError: (e) => addLog(`Breaker Failed: ${e.message.slice(0, 20)}`, 'critical')
+       });
+    }
+  };
+
   return (
     <div className={cn(
-        "bg-black rounded-xl overflow-hidden shadow-2xl font-mono relative transition-all duration-500",
-        // Visual Style: Uses pulsing red border if system is Operational (!isPaused), as requested.
-        !isPaused ? "border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-[pulse_2s_infinite]" : "border-2 border-gray-700 opacity-90"
+      "w-full rounded-xl overflow-hidden shadow-2xl transition-all duration-500 relative bg-black font-mono",
+      shake && "animate-shake", 
+      isPaused ? "border-4 border-red-600 shadow-red-900/50" : "border border-gray-800 shadow-xl"
     )}>
       
+      {/* GLOBAL RED TINT OVERLAY WHEN PAUSED */}
+      {isPaused && (
+         <div className="absolute inset-0 bg-red-900/10 pointer-events-none z-0 animate-pulse" />
+      )}
+
       {/* HEADER */}
-      <div className="bg-gray-900 border-b border-gray-800 p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-            <Terminal className={cn("w-5 h-5", !isPaused ? "text-green-500 animate-pulse" : "text-gray-500")} />
-            <h2 className="text-gray-200 font-bold tracking-wider text-sm">GUARDIAN_TERMINAL_V1</h2>
-        </div>
-        <div className="flex items-center gap-4">
-             {/* Security Score */}
+      <div className="bg-gray-900 p-3 flex justify-between items-center border-b border-gray-800 relative z-10">
+         <div className="flex items-center gap-2">
+            <Terminal className={cn("w-4 h-4", isPaused ? "text-red-500" : "text-green-500")} />
+            <span className="text-xs font-bold text-gray-400 tracking-widest">GUARDIAN_NET_V1.0</span>
+         </div>
+         <div className="flex gap-4">
              <div className="flex flex-col items-end">
-                <span className="text-[10px] text-gray-500 uppercase">System Status</span>
-                <span className={cn(
-                    "text-xs font-bold px-2 py-0.5 rounded",
-                    !isPaused ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
-                )}>
-                    {isPaused ? "HALTED" : "OPERATIONAL"}
-                </span>
+                <span className="text-[9px] text-gray-500 uppercase">Status</span>
+                {isPaused ? (
+                   <span className="text-xs font-bold text-red-500 bg-red-900/20 px-2 py-0.5 rounded animate-pulse">LOCKDOWN</span>
+                ) : (
+                   <span className="text-xs font-bold text-green-500 bg-green-900/20 px-2 py-0.5 rounded">SECURE</span>
+                )}
              </div>
-        </div>
+         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 h-[400px]">
+      <div className="grid grid-cols-1 md:grid-cols-2 relative z-10">
           
-          {/* LEFT: LOGS */}
-          <div className="col-span-2 bg-black/90 p-4 overflow-hidden flex flex-col relative border-r border-gray-800">
-             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-900/50 to-transparent opacity-50"></div>
+          {/* LEFT: INCIDENT LOG */}
+          <div className="p-4 border-r border-gray-800 bg-black/80 h-[300px] flex flex-col">
+             <div className="flex items-center justify-between mb-3">
+               <h3 className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                 <Activity className="w-3 h-3" /> NETWORK_TRAFFIC
+               </h3>
+               <span className="text-[10px] text-gray-600 animate-pulse">LIVE</span>
+             </div>
              
-             <div className="flex-1 overflow-y-auto space-y-2 pr-2 font-mono text-xs custom-scrollbar">
+             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                 {logs.map((log) => (
-                    <div key={log.id} className="flex items-start gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
-                        <span className="text-gray-600 shrink-0">[{log.timestamp}]</span>
-                        <span className={cn(
-                            "break-all",
-                            log.type === 'info' && "text-green-500/80",
-                            log.type === 'warning' && "text-yellow-500",
-                            log.type === 'critical' && "text-red-500 font-bold",
-                            log.type === 'success' && "text-blue-400"
-                        )}>
-                            {log.type === 'critical' && '> '}{log.message}
-                        </span>
-                    </div>
+                   <div key={log.id} className="text-[10px] md:text-xs flex gap-2 font-mono hover:bg-white/5 p-1 rounded transition-colors">
+                      <span className="text-gray-600 shrink-0 select-none">[{log.timestamp}]</span>
+                      <span className={cn(
+                        log.type === 'critical' ? "text-red-500 font-bold" : 
+                        log.type === 'warning' ? "text-yellow-500" :
+                        log.type === 'success' ? "text-green-500" :
+                        "text-gray-400"
+                      )}>
+                         {log.type === 'critical' && '>>> '}
+                         {log.message}
+                      </span>
+                   </div>
                 ))}
                 <div ref={logsEndRef} />
              </div>
-             
-             {/* Scanline Effect */}
-             <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] opacity-20"></div>
           </div>
 
-          {/* RIGHT: CONTROLS */}
-          <div className="col-span-1 bg-gray-900/50 p-6 flex flex-col justify-between items-center relative overflow-hidden">
+          {/* RIGHT: COMMAND CENTER */}
+          <div className="p-6 bg-gray-900/50 flex flex-col items-center justify-center relative overflow-hidden">
              
-             {/* Score */}
-             <div className="w-full mb-8 text-center">
-                <div className="inline-block relative">
-                    <Activity className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-                    {!isPaused && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>}
-                </div>
-                <div className="text-4xl font-bold text-white tracking-widest font-mono">
-                    {/* Real Score: Logs paused or Ratio */}
-                    {securityScore.toFixed(2)}
-                    <span className="text-sm text-gray-600 ml-1">x</span>
-                </div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Cover Ratio (Assets/Limit)</p>
+             {/* Security Score Large Display */}
+             <div className="mb-8 text-center">
+                 <div className="text-5xl font-black text-white/90 tracking-tighter">
+                    {isPaused ? "0.00" : coverage.toFixed(2)}<span className="text-lg text-gray-600 ml-1">x</span>
+                 </div>
+                 <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1">Collateral Ratio</p>
              </div>
 
-             {/* PANIC BUTTON */}
-             <div className="text-center w-full">
-                <button
-                    onMouseDown={() => !isPending && setHolding(true)}
-                    onMouseUp={() => setHolding(false)}
-                    onMouseLeave={() => setHolding(false)}
-                    onTouchStart={() => !isPending && setHolding(true)}
-                    onTouchEnd={() => setHolding(false)}
-                    className={cn(
-                        "relative w-24 h-24 rounded-full border-4 flex items-center justify-center transition-all duration-200 outline-none group",
-                        isPaused 
-                            ? "border-green-800 bg-green-900/20 hover:bg-green-900/30" 
-                            : "border-red-800 bg-red-900/20 hover:bg-red-900/30",
-                        holding && "scale-95"
-                    )}
-                >
-                    {/* Progress Ring */}
-                    {holding && (
-                         <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
-                            <circle
-                                cx="50%" cy="50%" r="46%"
-                                fill="none"
-                                stroke={isPaused ? "#4ade80" : "#ef4444"}
-                                strokeWidth="4"
-                                strokeDasharray="280"
-                                strokeDashoffset={280 - (280 * progress / 100)}
-                                className="transition-all duration-100 ease-linear"
-                            />
-                         </svg>
-                    )}
+             {/* UI: ARMING SWITCH */}
+             <div className="w-full max-w-[200px] mb-4">
+               <label className="flex items-center justify-between cursor-pointer group p-2 rounded bg-gray-800/50 hover:bg-gray-800 transition-colors border border-gray-700">
+                  <span className="text-xs font-bold text-gray-400 group-hover:text-gray-300">CONFIRM PROTOCOL</span>
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={isArmed}
+                      onChange={(e) => setIsArmed(e.target.checked)}
+                      disabled={isPending}
+                    />
+                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                  </div>
+               </label>
+             </div>
 
-                    {isPaused ? (
-                        <Unlock className="w-8 h-8 text-green-500" />
-                    ) : (
-                        <div className="flex flex-col items-center">
-                            <ShieldAlert className={cn("w-8 h-8 text-red-500 transition-all", holding && "scale-110 animate-pulse")} />
-                        </div>
-                    )}
-                </button>
-                
-                <div className="mt-4">
-                    <p className={cn("text-xs font-bold tracking-widest uppercase mb-1", isPaused ? "text-green-500" : "text-red-500")}>
-                        {isPaused ? "SYSTEM LOCKED" : "SYSTEM LIVE"}
-                    </p>
-                    <p className="text-[10px] text-gray-500">
-                        {isPaused ? "Hold to Unlock & Resume" : "Hold to Emergency Freeze"}
-                    </p>
+             {/* ACTION: BIG RED BUTTON */}
+             <button
+               onClick={executeSecurityProtocol}
+               disabled={!isArmed || isPending}
+               className={cn(
+                 "w-full max-w-[220px] py-4 rounded-lg font-black text-sm tracking-widest flex items-center justify-center gap-3 transition-all transform shadow-lg relative overflow-hidden",
+                 
+                 // State: Armed & Available vs Locked
+                 (!isArmed || isPending) 
+                   ? "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                   : isPaused
+                     ? "bg-green-600 hover:bg-green-500 text-white border-b-4 border-green-800 active:border-b-0 active:translate-y-1 shadow-green-900/50" 
+                     : "bg-red-600 hover:bg-red-500 text-white border-b-4 border-red-800 active:border-b-0 active:translate-y-1 shadow-red-900/50 animate-pulse"
+               )}
+             >
+                {isPending ? (
+                   <span className="animate-pulse">PROCESSING...</span>
+                ) : (
+                   <>
+                     {isPaused ? <Unlock className="w-5 h-5" /> : <Power className="w-5 h-5" />}
+                     {isPaused ? "RESTORE SYSTEM" : "ACTIVATE BREAKER"}
+                   </>
+                )}
+             </button>
+
+             {/* WARNING TEXT */}
+             {isArmed && !isPaused && (
+                <div className="mt-3 flex items-center gap-2 text-[10px] text-red-500 animate-pulse font-bold bg-red-950/30 px-2 py-1 rounded">
+                   <AlertOctagon className="w-3 h-3" />
+                   WARNING: THIS WILL FREEZE ALL FUNDS
                 </div>
-             </div>
+             )}
 
-             {/* Background Matrix Digits (Decorative) */}
-             <div className="absolute inset-0 flex flex-wrap content-start opacity-[0.03] pointer-events-none select-none overflow-hidden font-mono text-[10px] text-green-500 leading-none break-all">
-                {Array.from({length: 400}).map((_, i) => (
-                    <span key={i}>{Math.random() > 0.5 ? '1' : '0'}</span>
-                ))}
-             </div>
           </div>
+
       </div>
+
+      {/* BACKGROUND DECORATION */}
+      <div className="absolute top-0 right-0 w-full h-[1px] bg-gradient-to-l from-transparent via-gray-700 to-transparent opacity-20" />
+      <style jsx global>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+          20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .animate-shake {
+          animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+      `}</style>
     </div>
   );
 }
