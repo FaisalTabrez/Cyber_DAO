@@ -16,7 +16,7 @@ describe("SecureTreasury Security Controls", function () {
     [deployer, guardian, attacker] = await ethers.getSigners();
 
     const SecureTreasuryFactory = await ethers.getContractFactory("SecureTreasury");
-    treasury = await SecureTreasuryFactory.deploy(guardian.address, DAILY_LIMIT);
+    treasury = (await SecureTreasuryFactory.deploy(guardian.address, DAILY_LIMIT)) as unknown as SecureTreasury;
     await treasury.waitForDeployment();
 
     // Fund the treasury

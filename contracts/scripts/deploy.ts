@@ -1,66 +1,113 @@
 import { ethers } from "hardhat";
+import * as fs from "fs";
+import * as path from "path";
 
 async function main() {
-  const [deployer, guardian] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  
+  if (signers.length === 0) {
+    throw new Error("No accounts found. Please check your .env file and ensure PRIVATE_KEY is set.");
+  }
+
+  const deployer = signers[0];
+  
+  // Use second account as guardian if available, otherwise deployer
+  const guardianAddress = signers.length > 1 ? signers[1].address : deployer.address;
+
+  console.log("----------------------------------------------------");
   console.log("Deploying contracts with the account:", deployer.address);
-  console.log("Guardian address:", guardian.address);
+  console.log("Guardian address set to:", guardianAddress);
+  console.log("----------------------------------------------------");
+
+  if (signers.length < 2) {
+    console.warn("⚠️  WARNING: Only 1 account detected. Guardian is set to Deployer.");
+    console.warn("   For production, use a separate wallet for the Guardian role.");
+  }
 
   // 1. Deploy Governance Token
+  console.log("1. Deploying GovernanceToken...");
   const GovernanceToken = await ethers.getContractFactory("GovernanceToken");
   const token = await GovernanceToken.deploy();
   await token.waitForDeployment();
-  console.log(`GovernanceToken deployed to: ${await token.getAddress()}`);
+  const tokenAddress = await token.getAddress();
+  console.log(`   ✅ GovernanceToken: ${tokenAddress}`);
 
   // 2. Deploy Timelock
   // Min delay: 1 day (86400). 
   // Proposers: [], Executors: [], Admin: deployer (temporarily)
+  console.log("2. Deploying Timelock...");
   const minDelay = 86400; 
   const Timelock = await ethers.getContractFactory("Timelock");
   const timelock = await Timelock.deploy(minDelay, [], [], deployer.address);
   await timelock.waitForDeployment();
-  console.log(`Timelock deployed to: ${await timelock.getAddress()}`);
+  const timelockAddress = await timelock.getAddress();
+  console.log(`   ✅ Timelock: ${timelockAddress}`);
 
   // 3. Deploy DAOGovernor
+  console.log("3. Deploying DAOGovernor...");
   const DAOGovernor = await ethers.getContractFactory("DAOGovernor");
-  const governor = await DAOGovernor.deploy(await token.getAddress(), await timelock.getAddress());
+  const governor = await DAOGovernor.deploy(tokenAddress, timelockAddress);
   await governor.waitForDeployment();
-  console.log(`DAOGovernor deployed to: ${await governor.getAddress()}`);
+  const governorAddress = await governor.getAddress();
+  console.log(`   ✅ DAOGovernor: ${governorAddress}`);
 
   // 4. Deploy SecureTreasury
-  // Guardian: second account. Daily Limit: 1 ETH.
+  // Guardian: calculated above. Daily Limit: 1 ETH.
+  console.log("4. Deploying SecureTreasury...");
   const dailyLimit = ethers.parseEther("1.0");
   const SecureTreasury = await ethers.getContractFactory("SecureTreasury");
-  const treasury = await SecureTreasury.deploy(guardian.address, dailyLimit);
+  const treasury = await SecureTreasury.deploy(guardianAddress, dailyLimit);
   await treasury.waitForDeployment();
-  console.log(`SecureTreasury deployed to: ${await treasury.getAddress()}`);
+  const treasuryAddress = await treasury.getAddress();
+  console.log(`   ✅ SecureTreasury: ${treasuryAddress}`);
 
   // -- Setup Roles --
-  const timelockAddress = await timelock.getAddress();
-  const governorAddress = await governor.getAddress();
-
   const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
   const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
-  const ADMIN_ROLE = await timelock.DEFAULT_ADMIN_ROLE(); // TimelockController uses DEFAULT_ADMIN_ROLE as usage admin
+  const ADMIN_ROLE = await timelock.DEFAULT_ADMIN_ROLE(); 
+  // TimelockController uses DEFAULT_ADMIN_ROLE as usage admin
 
-  console.log("Setting up Timelock roles...");
+  console.log("\n-- 🔐 Setting up Security Roles --");
+  
   // Grant Proposer role to Governor
-  await timelock.grantRole(PROPOSER_ROLE, governorAddress);
-  // Grant Executor role to anyone (or restrict if needed)
-  await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
+  console.log("   Grating PROPOSER_ROLE to Governor...");
+  const tx1 = await timelock.grantRole(PROPOSER_ROLE, governorAddress);
+  await tx1.wait();
+  
+  // Grant Executor role to anyone (open for execution by public)
+  console.log("   Grating EXECUTOR_ROLE to zero address (open)...");
+  const tx2 = await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
+  await tx2.wait();
   
   // Transfer Treasury ownership to Timelock
-  console.log("Transferring Treasury ownership to Timelock...");
-  await treasury.transferOwnership(timelockAddress);
+  console.log("   Transferring Treasury ownership to Timelock...");
+  const tx3 = await treasury.transferOwnership(timelockAddress);
+  await tx3.wait();
 
   // Revoke admin role from deployer so only Timelock controls itself
-  console.log("Revoking admin role from deployer...");
-  await timelock.revokeRole(ADMIN_ROLE, deployer.address);
+  console.log("   Revoking ADMIN_ROLE from deployer (Decentralization)...");
+  const tx4 = await timelock.revokeRole(ADMIN_ROLE, deployer.address);
+  await tx4.wait();
 
-  console.log("Deployment and setup complete!");
+  console.log("\n-- 💾 Saving Deployment Config --");
+  const deployments = {
+    GovernanceToken: tokenAddress,
+    Timelock: timelockAddress,
+    DAOGovernor: governorAddress,
+    SecureTreasury: treasuryAddress,
+    Guardian: guardianAddress
+  };
+
+  // We go up one level from 'contracts' to root, then into 'frontend/src'
+  // NOTE: This assumes scripts runs from 'contracts' folder
+  const outputPath = path.resolve(__dirname, "../../frontend/src/deployed-addresses.json");
+  
+  fs.writeFileSync(outputPath, JSON.stringify(deployments, null, 2));
+  console.log(`   ✅ Saved to: ${outputPath}`);
+
+  console.log("\n----------------------------------------------------");
+  console.log("Deployment Complete!");
   console.log("----------------------------------------------------");
-  console.log("Security Note: The deployer no longer has admin access to the Timelock.");
-  console.log("The Treasury is owned by the Timelock.");
-  console.log("Guardian for Circuit Breaker is:", guardian.address);
 }
 
 main().catch((error) => {
