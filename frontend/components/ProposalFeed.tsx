@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { usePublicClient, useWatchContractEvent } from "wagmi";
 import { parseAbiItem } from "viem";
-import deployedAddresses from "../src/deployed-addresses.json";
 import { DAOGovernorABI } from "../lib/abis/contracts";
 import ProposalCard from "./ProposalCard";
 import { Activity, Loader2 } from "lucide-react";
@@ -27,12 +26,15 @@ export default function ProposalFeed() {
   const [isLoading, setIsLoading] = useState(true);
   
   const publicClient = usePublicClient();
-  const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
+  const GOVERNOR_ADDRESS = process.env.NEXT_PUBLIC_DAO_GOVERNOR_ADDRESS as `0x${string}`;
 
   // 1. Fetch Past Proposals
   useEffect(() => {
     async function fetchProposals() {
-      if (!publicClient) return;
+      if (!publicClient || !GOVERNOR_ADDRESS) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const logs = await publicClient.getLogs({
@@ -75,6 +77,7 @@ export default function ProposalFeed() {
       
       setProposals(prev => [...newProposals, ...prev].sort((a, b) => Number(b.proposalId - a.proposalId)));
     },
+    enabled: !!GOVERNOR_ADDRESS
   });
 
   if (isLoading) {
@@ -92,6 +95,7 @@ export default function ProposalFeed() {
          <Activity className="w-12 h-12 text-gray-300 mx-auto mb-3" />
          <h3 className="text-gray-600 font-semibold text-lg">No Active Proposals</h3>
          <p className="text-gray-400">The governance queue is currently empty.</p>
+         {!GOVERNOR_ADDRESS && <p className="text-red-500 text-xs mt-2">Error: Governor Address Not Configured</p>}
       </div>
     );
   }

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount, useReadContract, useWriteContract, useWatchContractEvent, useBalance } from "wagmi";
 import { formatEther } from "viem";
 import { SecureTreasuryABI, DAOGovernorABI } from "../lib/abis/contracts";
-import deployedAddresses from "../src/deployed-addresses.json";
 import { Terminal, ShieldAlert, Lock, Unlock, Activity, AlertOctagon, Power, FileWarning } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -30,25 +29,30 @@ export default function SecurityTerminal() {
   const [shake, setShake] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // Addresses
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
+  // Addresses from Env
+  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_SECURE_TREASURY_ADDRESS as `0x${string}`;
+  const GOVERNOR_ADDRESS = process.env.NEXT_PUBLIC_DAO_GOVERNOR_ADDRESS as `0x${string}`;
 
   // 1. System State
   const { data: isPausedData } = useReadContract({
     address: TREASURY_ADDRESS,
     abi: SecureTreasuryABI,
     functionName: "paused",
-    query: { refetchInterval: 2000 }
+    query: { refetchInterval: 2000, enabled: !!TREASURY_ADDRESS }
   });
-  const isPaused = isPausedData as boolean;
+  const isPaused = isPausedData as boolean ?? false;
 
   // 2. Metrics
-  const { data: balanceData } = useBalance({ address: TREASURY_ADDRESS });
+  const { data: balanceData } = useBalance({ 
+    address: TREASURY_ADDRESS,
+    query: { enabled: !!TREASURY_ADDRESS }
+  });
+  
   const { data: dailyLimitData } = useReadContract({
     address: TREASURY_ADDRESS,
     abi: SecureTreasuryABI,
     functionName: "dailyLimit",
+    query: { enabled: !!TREASURY_ADDRESS }
   });
 
   const dailyLimit = dailyLimitData ? parseFloat(formatEther(dailyLimitData as bigint)) : 0;
@@ -81,6 +85,7 @@ export default function SecurityTerminal() {
          addLog(`New Governance Proposal Detected: ${log.transactionHash.slice(0, 8)}`, 'warning');
       });
     },
+    enabled: !!GOVERNOR_ADDRESS
   });
 
   // Effect: Shake on Pause Trigger
@@ -124,6 +129,10 @@ export default function SecurityTerminal() {
        });
     }
   };
+
+  if (!TREASURY_ADDRESS || !GOVERNOR_ADDRESS) {
+      return <div className="p-4 text-red-500 font-mono">Control Error: Configuration Missing</div>
+  }
 
   return (
     <div className={cn(
