@@ -10,7 +10,7 @@ export const config = createConfig(
       transports: {
         // RPC URL for each chain
         [baseSepolia.id]: http(
-          process.env.NEXT_PUBLIC_RPC_URL || "https://sepolia.base.org",
+          process.env.NEXT_PUBLIC_RPC_URL || "https://base-sepolia-rpc.publicnode.com",
         ),
       },
 

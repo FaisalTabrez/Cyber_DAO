@@ -37,12 +37,18 @@ export default function ProposalFeed() {
       }
 
       try {
+        const currentBlock = await publicClient.getBlockNumber();
+        // Public RPC limits range to 50k blocks (~27 hours on Base). 
+        // We fetch the last 45,000 blocks to be safe. 
+        // For older history, we would need to paginate or use an indexer (The Graph).
+        const fromBlock = currentBlock > 45000n ? currentBlock - 45000n : 0n;
+
         const logs = await publicClient.getLogs({
           address: GOVERNOR_ADDRESS,
           event: parseAbiItem(
             "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
           ),
-          fromBlock: 'earliest', // In prod, use deployment block
+          fromBlock,
           toBlock: 'latest'
         });
 
