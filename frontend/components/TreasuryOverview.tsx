@@ -4,11 +4,11 @@ import { Banknote, Activity } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
 
 export default function TreasuryOverview() {
-  const { treasuryBalance, dailyLimit, spentToday } = useDAO();
+  const { treasuryBalance, dailyLimit, dailyWithdrawn } = useDAO();
 
   // Progress Calculations
   const limit = parseFloat(dailyLimit);
-  const spent = parseFloat(spentToday);
+  const spent = parseFloat(dailyWithdrawn);
   const spentPercent = limit > 0 ? (spent / limit) * 100 : 0;
   
   return (
