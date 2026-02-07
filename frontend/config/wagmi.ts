@@ -5,6 +5,6 @@ export const config = createConfig({
   chains: [baseSepolia],
   ssr: true,
   transports: {
-    [baseSepolia.id]: http('https://base-sepolia.g.alchemy.com/v2/6dhY0fZYfXpShToKfroFn'),
+    [baseSepolia.id]: http('https://sepolia.base.org'),
   },
 })

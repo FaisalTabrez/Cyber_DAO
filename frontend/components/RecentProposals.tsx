@@ -34,12 +34,15 @@ export default function RecentProposals() {
       if (!publicClient) return;
 
       try {
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock - 3000n; // Look back ~1.5 hours on Base (2s blocks) or 3000 blocks to be safe within 10k limit
+
         const logs = await publicClient.getLogs({
           address: GOVERNOR_ADDRESS,
           event: parseAbiItem(
             "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
           ),
-          fromBlock: 'earliest', // In prod, use deployment block
+          fromBlock: fromBlock > 0n ? fromBlock : 0n, 
           toBlock: 'latest'
         });
 
