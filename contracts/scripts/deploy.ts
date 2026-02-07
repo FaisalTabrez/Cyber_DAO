@@ -12,7 +12,7 @@ async function main() {
   const deployer = signers[0];
   
   // Use second account as guardian if available, otherwise deployer
-  const guardianAddress = signers.length > 1 ? signers[1].address : deployer.address;
+  const guardianAddress = "0x08249eBbd323f845b802e551b71115dFBfAb250f"; // User Specified Guardian
 
   console.log("----------------------------------------------------");
   console.log("Deploying contracts with the account:", deployer.address);
@@ -60,6 +60,14 @@ async function main() {
   await treasury.waitForDeployment();
   const treasuryAddress = await treasury.getAddress();
   console.log(`   ✅ SecureTreasury: ${treasuryAddress}`);
+
+  // 5. Fund Treasury with Governance Tokens
+  console.log("5. Funding SecureTreasury...");
+  const initialFundingAmount = ethers.parseEther("50000"); // 50,000 $GT
+  console.log(`   Transferring 50,000 $GT to Treasury (${treasuryAddress})...`);
+  const fundTx = await token.transfer(treasuryAddress, initialFundingAmount);
+  await fundTx.wait();
+  console.log("   ✅ Treasury Funded");
 
   // -- Setup Roles --
   const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
