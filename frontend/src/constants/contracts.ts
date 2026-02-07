@@ -32,6 +32,8 @@ export const ABIS = {
     "function votingPeriod() view returns (uint256)",
     "function proposalThreshold() view returns (uint256)",
     "function state(uint256 proposalId) view returns (uint8)",
+    "function proposalSnapshot(uint256 proposalId) view returns (uint256)",
+    "function proposalDeadline(uint256 proposalId) view returns (uint256)",
     "function proposalVotes(uint256 proposalId) view returns (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes)",
     "function castVote(uint256 proposalId, uint8 support) external returns (uint256)",
     "function propose(address[] targets, uint256[] values, bytes[] calldatas, string description) external returns (uint256)",

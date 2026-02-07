@@ -1,13 +1,33 @@
 "use client";
 
-import { useAccount, useReadContracts, useBalance } from "wagmi";
-import { formatUnits, keccak256, toBytes, getAddress, isAddressEqual } from "viem";
+import { useAccount, useReadContracts, useBalance, usePublicClient } from "wagmi";
+import { formatUnits, keccak256, toBytes, getAddress, isAddressEqual, parseAbiItem } from "viem";
 import { CONTRACTS, ABIS } from "../src/constants/contracts"; // Single source of truth
 import { useEffect, useState } from "react";
+
+export interface DAOProposal {
+    id: bigint;
+    proposer: string;
+    description: string;
+    voteStart: bigint; // Snapshot block
+    voteEnd: bigint;   // Deadline block
+    snapshot: bigint;  // Explicitly fetched
+    deadline: bigint;  // Explicitly fetched
+    state: number;     // 0-7
+    transactionHash: string;
+    targets: readonly `0x${string}`[];
+    values: readonly bigint[];
+    calldatas: readonly `0x${string}`[];
+}
 
 export function useDAO() {
   const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
+  
+  // Governance History State
+  const [proposals, setProposals] = useState<DAOProposal[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const publicClient = usePublicClient();
 
   useEffect(() => {
     setMounted(true);
@@ -16,6 +36,7 @@ export function useDAO() {
   // Use Centralized Constants
   const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
   const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
   
   // Role Definition: keccak256("SECURITY_GUARDIAN_ROLE")
   // Verified Hash: 0x86c1afc0029e36adf493969d41f5975e93a4d76844e475dc266d5ad4f5f3f580
@@ -123,7 +144,71 @@ export function useDAO() {
   if (isGuardian) userStatus = "Guardian";
   else if (isStakeholder) userStatus = "Stakeholder";
 
+  // 3. Global History Indexer
+  useEffect(() => {
+    async function fetchAllProposals() {
+        if (!publicClient || !GOVERNOR_ADDRESS) return;
+        
+        try {
+            console.log("🔄 Syncing Governance History...");
+            const currentBlock = await publicClient.getBlockNumber();
+            const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n; // 50k Block Range
+            
+            const logs = await publicClient.getLogs({
+                address: GOVERNOR_ADDRESS,
+                event: parseAbiItem(
+                    "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+                ),
+                fromBlock,
+                toBlock: 'latest' 
+            });
+
+            // Enrich with snapshot/deadline/state
+            const enriched = await Promise.all(logs.map(async (log) => {
+                const args = log.args as any;
+                const pid = args.proposalId;
+                
+                // Multicall for efficiency
+                const results = await publicClient.multicall({
+                    contracts: [
+                        { address: GOVERNOR_ADDRESS, abi: ABIS.DAOGovernor, functionName: 'proposalSnapshot', args: [pid] },
+                        { address: GOVERNOR_ADDRESS, abi: ABIS.DAOGovernor, functionName: 'proposalDeadline', args: [pid] },
+                        { address: GOVERNOR_ADDRESS, abi: ABIS.DAOGovernor, functionName: 'state', args: [pid] }
+                    ]
+                });
+
+                return {
+                    id: pid,
+                    proposer: args.proposer,
+                    targets: args.targets,
+                    values: args.values,
+                    calldatas: args.calldatas,
+                    description: args.description,
+                    voteStart: args.voteStart,
+                    voteEnd: args.voteEnd,
+                    transactionHash: log.transactionHash,
+                    snapshot: results[0].result as bigint ?? 0n,
+                    deadline: results[1].result as bigint ?? 0n,
+                    state: results[2].result as number ?? 0
+                } as DAOProposal;
+            }));
+
+            setProposals(enriched.sort((a,b) => Number(b.id - a.id)));
+        } catch (e) {
+            console.error("Governance History Sync Error:", e);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }
+
+    if (shouldFetch) fetchAllProposals();
+  }, [publicClient, GOVERNOR_ADDRESS, shouldFetch]);
+
   return {
+    // New History Data
+    proposals,
+    historyLoading,
+
     // Formatting for UI using formatUnits(val, 18) as requested
     treasuryBalance: formatUnits(treasuryTokenBalance, 18), // Now returning GT Balance!
     treasuryEthBalance: treasuryEthBalanceData ? formatUnits(treasuryEthBalanceData.value, 18) : "0.0",
