@@ -111,6 +111,7 @@ export function useDAO() {
     isGuardian,
     isStakeholder,
     paused,
-    isLoading: isLoadingContracts
+    isLoading: isLoadingContracts,
+    isConnected
   };
 }
