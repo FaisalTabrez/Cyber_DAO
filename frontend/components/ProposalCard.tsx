@@ -5,6 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatEther } from "viem";
 import {  CheckCircle, XCircle, MinusCircle, FileCode, Play, Check, AlertTriangle } from "lucide-react";
 import { DAOGovernorABI, SecureTreasuryABI } from "../lib/abis/contracts";
+import { analyzeProposalRisk } from "../lib/risk/RiskEngine";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -93,9 +94,11 @@ export default function ProposalCard({
     query: { enabled: !!TREASURY_ADDRESS }
   });
 
-  const treasuryBal = treasuryBalance ? parseFloat(formatEther(treasuryBalance.value)) : 0;
-  const valueEth = values && values.length > 0 ? parseFloat(formatEther(values[0])) : 0; // Simplified for single action
-  const isLargeTransfer = treasuryBal > 0 && (valueEth / treasuryBal) > 0.1; // >10% of treasury
+  const proposalValue = values && values.length > 0 ? values[0] : 0n;
+  const treasuryAmount = treasuryBalance ? treasuryBalance.value : 0n;
+  
+  const { isHighRisk, riskFactors } = analyzeProposalRisk(proposalValue, treasuryAmount);
+  const valueEth = riskFactors.valueEth;
 
   // 3. Voting & Execution Actions
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
@@ -168,10 +171,10 @@ export default function ProposalCard({
                 <span className="text-gray-500">Target Config:</span>
                 <span className="font-mono text-gray-700">{targets.length} Action(s)</span>
              </div>
-             {isLargeTransfer && (
+             {isHighRisk && (
                 <div className="flex items-center gap-2 text-orange-600 font-bold bg-orange-100/50 p-1.5 rounded">
                    <AlertTriangle className="w-3 h-3" />
-                   High Value Transfer Detected ({valueEth} ETH)
+                   High Risk Proposal ({valueEth} ETH)
                 </div>
              )}
           </div>

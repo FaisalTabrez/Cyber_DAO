@@ -2,6 +2,7 @@ export const SecureTreasuryABI = [
   "function dailyLimit() view returns (uint256)",
   "function dailyWithdrawn() view returns (uint256)",
   "function guardian() view returns (address)",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
   "function paused() view returns (bool)",
   "function circuitBreaker() external",
   "function unpause() external",
@@ -25,4 +26,7 @@ export const GovernanceTokenABI = [
   "function getVotes(address account) view returns (uint256)",
   "function balanceOf(address account) view returns (uint256)",
   "function delegates(address account) view returns (address)",
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "function mint(address to, uint256 amount) external",
+  "function delegate(address delegatee) external"
 ] as const;

@@ -18,8 +18,7 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   const { 
     isConnected, 
-    isGuardian, 
-    isStakeholder, 
+    userStatus,
     paused: isSystemPaused,
     userBalance
   } = useDAO();
@@ -33,9 +32,14 @@ export default function Home() {
   // Role Badge Logic
   const getRoleBadge = () => {
     if (!isConnected) return <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2"><Eye className="w-3 h-3"/> Public Observer</span>;
-    if (isGuardian) return <span className="bg-green-900 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-700 flex items-center gap-2"><Lock className="w-3 h-3"/> Security Guardian</span>;
-    if (isStakeholder) return <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 flex items-center gap-2"><Users className="w-3 h-3"/> DAO Member</span>;
-    return <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2"><Users className="w-3 h-3"/> Guest</span>;
+    switch (userStatus) {
+      case "Guardian":
+        return <span className="bg-green-900 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-700 flex items-center gap-2"><Lock className="w-3 h-3"/> Security Guardian</span>;
+      case "Stakeholder":
+        return <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 flex items-center gap-2"><Users className="w-3 h-3"/> DAO Member</span>;
+      default:
+        return <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2"><Users className="w-3 h-3"/> Guest</span>;
+    }
   }
 
   return (
@@ -86,11 +90,11 @@ export default function Home() {
         
          {/* TOP SECTION: Role-Specific Action Area */}
          <section>
-            {isGuardian ? (
+            {userStatus === "Guardian" ? (
                <div className="animate-in fade-in slide-in-from-top-4 duration-500">
                  <GuardianTerminal />
                </div>
-            ) : isStakeholder ? (
+            ) : userStatus === "Stakeholder" ? (
                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
                   <div>
                      <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">

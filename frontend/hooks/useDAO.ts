@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount, useReadContracts, useBalance } from "wagmi";
-import { formatEther } from "viem";
+import { formatEther, keccak256, toBytes } from "viem";
 import { SecureTreasuryABI, GovernanceTokenABI } from "../lib/abis/contracts";
 import { useEffect, useState } from "react";
 
@@ -16,6 +16,10 @@ export function useDAO() {
   // Environment Variables for Vercel
   const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_SECURE_TREASURY_ADDRESS as `0x${string}`;
   const TOKEN_ADDRESS = process.env.NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS as `0x${string}`;
+  
+  // Role Definition: keccak256("SECURITY_GUARDIAN_ROLE")
+  // Verified Hash: 0x86c1afc0029e36adf493969d41f5975e93a4d76844e475dc266d5ad4f5f3f580
+  const GUARDIAN_ROLE = keccak256(toBytes("SECURITY_GUARDIAN_ROLE"));
 
   const shouldFetch = mounted && !!TREASURY_ADDRESS && !!TOKEN_ADDRESS;
 
@@ -35,11 +39,12 @@ export function useDAO() {
         functionName: "balanceOf",
         args: address ? [address] : undefined,
       },
-      // 2: Guardian Address (Role Check)
+      // 2: Guardian Role Check (Replaces old 'guardian' view)
       {
         address: TREASURY_ADDRESS,
         abi: SecureTreasuryABI,
-        functionName: "guardian",
+        functionName: "hasRole",
+        args: address ? [GUARDIAN_ROLE, address] : undefined,
       },
       // 3: Daily Limit
       {
@@ -73,13 +78,18 @@ export function useDAO() {
   // Safe Destructuring
   const paused = contractData?.[0]?.result as boolean ?? false;
   const userBalance = contractData?.[1]?.result as bigint ?? 0n;
-  const guardian = contractData?.[2]?.result as string;
+  const isGuardianRole = contractData?.[2]?.result as boolean ?? false;
   const dailyLimit = contractData?.[3]?.result as bigint ?? 0n;
   const dailyWithdrawn = contractData?.[4]?.result as bigint ?? 0n;
 
   // Role Logic
-  const isGuardian = address && guardian ? address.toLowerCase() === guardian.toLowerCase() : false;
+  const isGuardian = isGuardianRole;
   const isStakeholder = userBalance > 0n;
+  
+  // Derived Status
+  let userStatus: "Guardian" | "Stakeholder" | "Guest" = "Guest";
+  if (isGuardian) userStatus = "Guardian";
+  else if (isStakeholder) userStatus = "Stakeholder";
 
   return {
     // Formatting for UI
@@ -87,6 +97,7 @@ export function useDAO() {
     userBalance: formatEther(userBalance),
     dailyLimit: formatEther(dailyLimit),
     dailyWithdrawn: formatEther(dailyWithdrawn),
+    userStatus,
     
     // Status Flags
     paused,

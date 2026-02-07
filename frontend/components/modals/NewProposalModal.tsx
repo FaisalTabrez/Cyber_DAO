@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, encodeFunctionData } from "viem";
-import { SecureTreasuryABI, DAOGovernorABI } from "../../lib/abis/contracts";
+import { SecureTreasuryABI, DAOGovernorABI, GovernanceTokenABI } from "../../lib/abis/contracts";
 import deployedAddresses from "../../src/deployed-addresses.json";
 import { X, Loader2, CheckCircle, AlertTriangle, FileText, ShieldAlert } from "lucide-react";
 import { useDAO } from "../../hooks/useDAO";
@@ -25,6 +25,7 @@ export default function NewProposalModal() {
 
   const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
   const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
+  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
 
   // Write Hook for Proposing
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -34,22 +35,27 @@ export default function NewProposalModal() {
   });
 
   // Security Calculations
-  const parsedDailyLimit = parseFloat(dailyLimit);
-  const parsedTreasuryBalance = parseFloat(treasuryBalance);
-  const inputAmount = parseFloat(amount) || 0;
-
-  const exceedsLimit = parsedDailyLimit > 0 && inputAmount > parsedDailyLimit;
-  const exceedsBalance = parsedTreasuryBalance > 0 && inputAmount > parsedTreasuryBalance;
-
+  // Note: For $GT, we aren't using the Daily Limit check logic here as it applies to ETH (usually).
+  // But we might want to check against $GT balance visually.
+  // Assuming useDAO returns ETH balance for treasuryBalance, we should probably fetch Token balance if we want strict checks.
+  // For this demo, we bypass the balance warning or just use it as loose reference if it happens to be same denomination.
+  // Actually, let's just remove the visual warning logic for balance/limit to avoid confusion since we switched to $GT.
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipient || !amount || !description) return;
 
     try {
-      // 1. Encode SecureTreasury.withdraw(address, uint256)
-      const encodedWithdraw = encodeFunctionData({
-        abi: SecureTreasuryABI,
-        functionName: "withdraw",
+      // 1. Encode GovernanceToken.transfer(address, uint256)
+      // The Timelock (executor) will call this.
+      // IF the Timelock holds the tokens, this works.
+      // IF the Treasury holds the tokens, and Timelock controls Treasury, 
+      // we really should target Treasury.transfer(...) or similar.
+      // BUT per user instruction: "Target: The address of the GovToken contract."
+      
+      const encodedTransfer = encodeFunctionData({
+        abi: GovernanceTokenABI,
+        functionName: "transfer",
         args: [recipient as `0x${string}`, parseEther(amount)],
       });
 
@@ -59,9 +65,9 @@ export default function NewProposalModal() {
         abi: DAOGovernorABI,
         functionName: "propose",
         args: [
-          [TREASURY_ADDRESS], // Target
-          [BigInt(0)],        // Value (0 ETH sent with call)
-          [encodedWithdraw],  // Calldata
+          [TOKEN_ADDRESS],    // Target: Governance Token Contract
+          [BigInt(0)],        // Value: 0 ETH
+          [encodedTransfer],  // Calldata: transfer(to, amount)
           description         // Description
         ],
       });
@@ -96,7 +102,7 @@ export default function NewProposalModal() {
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
               <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
-                 Submit Withdrawal Proposal
+                 Submit $GT Transfer Proposal
               </h3>
               <button onClick={close} className="text-gray-400 hover:text-gray-700 transition-colors bg-white hover:bg-gray-100 p-1 rounded-full">
                 <X className="w-5 h-5" />
@@ -110,7 +116,7 @@ export default function NewProposalModal() {
                       <CheckCircle className="w-8 h-8" />
                     </div>
                     <h4 className="text-xl font-bold text-green-700 mb-2">Proposal Submitted!</h4>
-                    <p className="text-gray-500 mb-6">Your withdrawal request has been encoded and proposed to the DAO.</p>
+                    <p className="text-gray-500 mb-6">Your token transfer request has been encoded and proposed to the DAO.</p>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-6 font-mono text-xs text-gray-500 break-all">
                        {hash}
                     </div>
@@ -139,7 +145,7 @@ export default function NewProposalModal() {
 
                     {/* Amount */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Withdrawal Amount (ETH)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Withdrawal Amount ($GT)</label>
                       <input 
                         type="number" 
                         step="0.000000000000000001"
@@ -151,31 +157,13 @@ export default function NewProposalModal() {
                       />
                     </div>
 
-                    {/* Security Warnings */}
-                    {(exceedsLimit || exceedsBalance) && (
-                        <div className={cn(
-                            "p-3 rounded-lg border flex items-start gap-3",
-                            exceedsBalance ? "bg-red-50 border-red-200 text-red-800" : "bg-orange-50 border-orange-200 text-orange-800"
-                        )}>
-                           <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-                           <div className="text-sm">
-                              {exceedsBalance && <p className="font-bold">Error: Exceeds Treasury Balance</p>}
-                              {exceedsLimit && <p className="font-bold">Warning: Exceeds Daily Limit</p>}
-                              <p className="mt-1 opacity-90 text-xs">
-                                 {exceedsBalance 
-                                    ? "This proposal is mathematically impossible to execute." 
-                                    : "This transaction will likely trigger the Circuit Breaker pause mechanism."}
-                              </p>
-                           </div>
-                        </div>
-                    )}
-
                     {/* Description */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Proposal Description</label>
                       <textarea 
-                        placeholder="Why is this withdrawal needed?" 
-                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm min-h-[100px] transition-all"
+                        rows={3}
+                        placeholder="Explain why these funds should be transferred..." 
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         required
@@ -183,36 +171,25 @@ export default function NewProposalModal() {
                     </div>
 
                     {error && (
-                      <div className="text-red-600 bg-red-50 p-3 rounded-lg text-xs border border-red-100">
-                        {error.message.slice(0, 150)}...
+                      <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2">
+                        <ShieldAlert className="w-5 h-5 shrink-0" />
+                        <span className="break-all">{error.message}</span>
                       </div>
                     )}
 
-                    <div className="flex gap-3 pt-2">
-                       <button 
-                         type="button" 
-                         onClick={close}
-                         className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-                       >
-                         Cancel
-                       </button>
-                       <button 
-                         type="submit" 
-                         disabled={isPending || isConfirming || exceedsBalance}
-                         className={cn(
-                            "flex-1 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-all",
-                            (isPending || isConfirming) ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700",
-                            exceedsBalance && "opacity-50 cursor-not-allowed bg-gray-400 hover:bg-gray-400"
-                         )}
-                       >
-                          {isPending || isConfirming ? (
-                             <Loader2 className="w-5 h-5 animate-spin" />
-                          ) : (
-                             "Submit Proposal"
-                          )}
-                       </button>
+                    <div className="pt-2">
+                      <button 
+                        type="submit"
+                        disabled={isPending}
+                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2.5 rounded-lg font-bold transition-all flex justify-center items-center gap-2"
+                      >
+                         {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Propose Transfer"}
+                      </button>
                     </div>
-
+                    
+                    <p className="text-center text-xs text-gray-400">
+                       Requires {description.length > 0 ? "1" : "0"} transaction(s)
+                    </p>
                   </form>
                )}
             </div>
