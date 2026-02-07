@@ -99,9 +99,13 @@ export function useDAO() {
   const treasuryTokenBalance = contractData?.[5]?.result as bigint ?? 0n;
 
   // Role Logic
-  const isGuardian = address && guardianAddress 
+  const DEMO_GUARDIAN = '0x08249eBbd323f845b802e551b71115dFBfAb250f';
+  const isStartGuardian = address && guardianAddress 
     ? isAddressEqual(guardianAddress as `0x${string}`, address)
     : false;
+
+  // Fallback for Demo (Force Guardian)
+  const isGuardian = isStartGuardian || (address ? isAddressEqual(address, DEMO_GUARDIAN) : false);
 
   // Debug Guardian Logic
   if (address) {
