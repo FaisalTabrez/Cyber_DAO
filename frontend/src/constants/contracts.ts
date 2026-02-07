@@ -1,5 +1,6 @@
 import deployedAddresses from "../deployed-addresses.json";
 import GovTokenABI from "../abis/GovToken.json";
+import { parseAbi } from "viem";
 
 // Single Source of Truth for Contract Addresses
 // Prioritize Environment Variables, fallback to deployed-addresses.json, then Hardcoded Fallback
@@ -13,7 +14,7 @@ export const CONTRACTS = {
 
 // Contract ABIs
 export const ABIS = {
-  SecureTreasury: [
+  SecureTreasury: parseAbi([
     "function dailyLimit() view returns (uint256)",
     "function dailyWithdrawn() view returns (uint256)",
     "function guardian() view returns (address)",
@@ -24,9 +25,9 @@ export const ABIS = {
     "function withdraw(address to, uint256 amount) external",
     "function setGuardian(address _newGuardian) external",
     "function updateDailyLimit(uint256 _newLimit) external"
-  ] as const,
+  ]),
 
-  DAOGovernor: [
+  DAOGovernor: parseAbi([
     "function votingDelay() view returns (uint256)",
     "function votingPeriod() view returns (uint256)",
     "function proposalThreshold() view returns (uint256)",
@@ -35,7 +36,7 @@ export const ABIS = {
     "function castVote(uint256 proposalId, uint8 support) external returns (uint256)",
     "function propose(address[] targets, uint256[] values, bytes[] calldatas, string description) external returns (uint256)",
     "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
-  ] as const,
+  ]),
 
   GovernanceToken: GovTokenABI
 };
