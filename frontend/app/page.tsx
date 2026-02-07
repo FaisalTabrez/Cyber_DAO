@@ -73,7 +73,7 @@ export default function Home() {
                     <span className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">Your Balance</span>
                     <span className="text-sm font-bold text-gray-700 flex items-center gap-1">
                        <Coins className="w-3 h-3 text-yellow-500" />
-                       {parseFloat(userBalance).toFixed(2)} GVT
+                       {parseFloat(userBalance).toFixed(2)} GT
                     </span>
                  </div>
               )}
