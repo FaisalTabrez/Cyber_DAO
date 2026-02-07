@@ -20,14 +20,14 @@ export default function TreasuryOverview() {
   }, []);
 
   // Fetch Token Balance of Treasury
-  const { data: tokenBalance, isLoading } = useReadContract({
-    address: TOKEN_ADDRESS,
+  const { data: tokenBalance, isError, isLoading } = useReadContract({
+    address: CONTRACTS.GOVERNANCE_TOKEN,
     abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
-    args: [TREASURY_ADDRESS],
+    args: [CONTRACTS.SECURE_TREASURY],
     query: {
+        enabled: !!CONTRACTS.GOVERNANCE_TOKEN,
         refetchInterval: 5000,
-        enabled: mounted,
     }
   });
 
@@ -38,10 +38,12 @@ export default function TreasuryOverview() {
             TREASURY_ADDRESS,
             TOKEN_ADDRESS,
             tokenBalance: tokenBalance ? formatUnits(tokenBalance as unknown as bigint, 18) : "loading/undefined",
-            isLoading
+            isLoading,
+            isError
         });
+        if (isError) console.error("Balance Fetch Error: Blockchain call failed.");
     }
-  }, [mounted, tokenBalance, isLoading, TREASURY_ADDRESS, TOKEN_ADDRESS]);
+  }, [mounted, tokenBalance, isLoading, isError, TREASURY_ADDRESS, TOKEN_ADDRESS]);
 
   if (!mounted) return <div className="p-6 text-gray-400">Loading Treasury Data...</div>;
 

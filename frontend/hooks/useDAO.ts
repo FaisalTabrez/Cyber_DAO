@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount, useReadContracts, useBalance } from "wagmi";
-import { formatUnits, keccak256, toBytes } from "viem";
+import { formatUnits, keccak256, toBytes, getAddress } from "viem";
 import { CONTRACTS, ABIS } from "../src/constants/contracts"; // Single source of truth
 import { useEffect, useState } from "react";
 
@@ -90,7 +90,7 @@ export function useDAO() {
   const treasuryTokenBalance = contractData?.[5]?.result as bigint ?? 0n;
 
   // Role Logic
-  const isGuardian = address && guardianAddress ? (guardianAddress.toLowerCase() === address.toLowerCase()) : false;
+  const isGuardian = address && guardianAddress ? (getAddress(guardianAddress) === getAddress(address)) : false;
   const isStakeholder = userBalance > 0n;
   
   // Derived Status
