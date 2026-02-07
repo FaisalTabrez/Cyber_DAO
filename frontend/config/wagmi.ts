@@ -8,9 +8,12 @@ export const config = createConfig(
       // Your dApps chains
       chains: [baseSepolia],
       transports: {
-        // RPC URL for each chain
+        // RPC URL for each chain: Force Public Node + Disable Batching
         [baseSepolia.id]: http(
-          process.env.NEXT_PUBLIC_RPC_URL || "https://base-sepolia-rpc.publicnode.com",
+          "https://base-sepolia-rpc.publicnode.com", 
+          {
+             batch: false
+          }
         ),
       },
 
