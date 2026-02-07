@@ -22,7 +22,7 @@ export default function TreasuryOverview() {
     args: [TREASURY_ADDRESS],
   });
 
-  const formattedBalance = tokenBalance ? parseFloat(formatEther(tokenBalance)) : 0;
+  const formattedBalance = tokenBalance ? parseFloat(formatEther(tokenBalance as unknown as bigint)) : 0;
 
   // Progress Calculations (ETH Limit)
   // Note: The daily limit logic in SecureTreasury is typically for ETH withdrawals.
