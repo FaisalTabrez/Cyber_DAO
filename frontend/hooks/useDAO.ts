@@ -102,6 +102,16 @@ export function useDAO() {
   const isGuardian = address && guardianAddress 
     ? isAddressEqual(guardianAddress as `0x${string}`, address)
     : false;
+
+  // Debug Guardian Logic
+  if (address) {
+    console.log("🛡️ Guardian Check:", {
+      connected: address,
+      contractGuardian: guardianAddress,
+      isMatch: isGuardian
+    });
+  }
+
   const isStakeholder = userBalance > 0n;
   
   // Derived Status

@@ -20,6 +20,7 @@ export default function SubmitProposalModal() {
 
   const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
   const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
   // 1. Fetch Daily Limit for Security Warning
   const { data: dailyLimit } = useReadContract({
@@ -44,22 +45,23 @@ export default function SubmitProposalModal() {
     if (!recipient || !amount || !description) return;
 
     try {
-      // 1. Encode the Treasury transfer logic
-      // We assume SecureTreasury has a transfer(address,uint256) function based on requirements
+      // 1. Encode Transfer Proposal
+      // We are proposing a transfer of GOVERNANCE TOKENS (GT)
       const encodedTransfer = encodeFunctionData({
-        abi: ABIS.SecureTreasury,
+        abi: ABIS.GovernanceToken,
         functionName: "transfer",
         args: [recipient as `0x${string}`, parseEther(amount)],
       });
 
       // 2. Submit Proposal to Governor
+      // Target: Governance Token Contract (to execute transfer)
       writeContract({
         address: GOVERNOR_ADDRESS,
         abi: ABIS.DAOGovernor,
         functionName: "propose",
         args: [
-          [TREASURY_ADDRESS], // Targets
-          [BigInt(0)],        // Values (ETH sent with call - 0 because we are calling transfer fn)
+          [TOKEN_ADDRESS],    // Targets
+          [BigInt(0)],        // Values
           [encodedTransfer],  // Calldatas
           description         // Description
         ],

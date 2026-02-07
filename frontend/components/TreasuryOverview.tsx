@@ -74,7 +74,7 @@ export default function TreasuryOverview() {
             <p className="text-sm text-gray-500 font-medium mb-1">Total Assets</p>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold text-gray-900">{formattedBalance.toFixed(2)}</span>
-              <span className="text-sm font-bold text-gray-400">$GT</span>
+              <span className="text-sm font-bold text-gray-400">GT</span>
             </div>
             <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                <Activity className="w-3 h-3" />
@@ -82,7 +82,8 @@ export default function TreasuryOverview() {
             </p>
           </div>
 
-          {/* Daily Limit Progress */}
+          {/* Daily Limit Progress (Hidden for Demo) */}
+          {false && (
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
              <div className="flex justify-between items-center mb-2">
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Daily ETH Spending Limit</span>
@@ -100,6 +101,7 @@ export default function TreasuryOverview() {
                 {spentPercent > 100 ? "Limit Exceeded" : `${(100 - spentPercent).toFixed(1)}% remaining`}
              </div>
           </div>
+          )}
           
        </div>
     </div>
