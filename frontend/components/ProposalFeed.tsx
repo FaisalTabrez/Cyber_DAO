@@ -19,6 +19,7 @@ interface ProposalEvent {
   voteEnd: bigint;
   description: string;
   transactionHash: string;
+  status: number; // 0-7 from Enum
 }
 
 export default function ProposalFeed() {
@@ -37,11 +38,11 @@ export default function ProposalFeed() {
       }
 
       try {
-        const currentBlock = await publicClient.getBlockNumber();
-        // Public RPC limits range to 50k blocks (~27 hours on Base). 
-        // We fetch the last 45,000 blocks to be safe. 
-        // For older history, we would need to paginate or use an indexer (The Graph).
-        const fromBlock = currentBlock > 45000n ? currentBlock - 45000n : 0n;
+        // Deployment Block: 14800000n (approx)
+        // Public RPC supports this range better now
+        const fromBlock = 14800000n; 
+
+        console.log("Fetching proposals from block:", fromBlock);
 
         const logs = await publicClient.getLogs({
           address: GOVERNOR_ADDRESS,
@@ -52,13 +53,32 @@ export default function ProposalFeed() {
           toBlock: 'latest'
         });
 
-        // Format logs to our shape
-        const formatted = logs.map(log => ({
-            ...log.args,
-            transactionHash: log.transactionHash
-        } as unknown as ProposalEvent)).sort((a, b) => Number(b.proposalId - a.proposalId)); // Newest first
+        // Map State for each proposal
+        const formatted = await Promise.all(logs.map(async (log) => {
+             const args = log.args as any;
+             
+             // Fetch current state Global Indexer style
+             let state = 0; // Default Pending
+             try {
+                // @ts-ignore
+                state = await publicClient.readContract({
+                    address: GOVERNOR_ADDRESS,
+                    abi: ABIS.DAOGovernor,
+                    functionName: 'state',
+                    args: [args.proposalId]
+                }) as number;
+             } catch (e) {
+                 console.warn(`Could not fetch state for proposal ${args.proposalId}`, e);
+             }
 
-        setProposals(formatted);
+             return {
+                ...args,
+                transactionHash: log.transactionHash,
+                status: state
+             } as ProposalEvent;
+        }));
+
+        setProposals(formatted.sort((a, b) => Number(b.proposalId - a.proposalId))); 
       } catch (error) {
         console.error("Error fetching proposals:", error);
       } finally {
@@ -74,14 +94,30 @@ export default function ProposalFeed() {
     address: GOVERNOR_ADDRESS,
     abi: ABIS.DAOGovernor,
     eventName: "ProposalCreated",
-    onLogs(logs) {
-      const newProposals = logs.map(log => ({
-        // @ts-ignore - Wagmi events are strictly typed but we know args exist
-        ...log.args,
-        transactionHash: log.transactionHash
-      } as unknown as ProposalEvent));
+    onLogs: async (logs) => {
+        // For new logs, status is likely 0 (Pending) or 1 (Active) depending on delay
+        // We can just assume 0 or fetch
+        const newItems = await Promise.all(logs.map(async (log) => {
+             const args = log.args as any;
+             let state = 0;
+             try {
+                 // @ts-ignore
+                 state = await publicClient?.readContract({
+                     address: GOVERNOR_ADDRESS,
+                     abi: ABIS.DAOGovernor,
+                     functionName: 'state',
+                     args: [args.proposalId]
+                 }) as number;
+             } catch {}
+    
+            return {
+                ...args,
+                transactionHash: log.transactionHash,
+                status: state
+            } as ProposalEvent;
+        }));
       
-      setProposals(prev => [...newProposals, ...prev].sort((a, b) => Number(b.proposalId - a.proposalId)));
+      setProposals(prev => [...newItems, ...prev].sort((a, b) => Number(b.proposalId - a.proposalId)));
     },
     enabled: !!GOVERNOR_ADDRESS
   });

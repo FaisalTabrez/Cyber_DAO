@@ -38,6 +38,7 @@ interface ProposalCardProps {
   signatures: readonly string[];
   calldatas: readonly `0x${string}`[];
   description: string;
+  status?: number; // Optional status passed from Feed
 }
 
 export default function ProposalCard({
@@ -45,7 +46,8 @@ export default function ProposalCard({
   targets,
   values,
   calldatas,
-  description
+  description,
+  status
 }: ProposalCardProps) {
   const { address } = useAccount();
   
@@ -71,7 +73,8 @@ export default function ProposalCard({
   });
 
   // Derived State
-  const stateIndex = stateData as number | undefined;
+  // Priority: 1. Live Data, 2. Passed Prop, 3. Undefined
+  const stateIndex = (stateData as number | undefined) ?? status;
   const proposalState = stateIndex !== undefined ? PROPOSAL_STATE[stateIndex] : "Loading...";
   const isActive = proposalState === "Active";
   const isSucceeded = proposalState === "Succeeded";
