@@ -30,7 +30,7 @@ export default function SubmitProposalModal() {
   });
 
   // 2. Write Contract Hook
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ 
     hash,
@@ -73,11 +73,12 @@ export default function SubmitProposalModal() {
 
   const close = () => {
     setIsOpen(false);
-    // Reset form on close if success
-    if (isConfirmed) {
+    // Reset form and wagmi state on close
+    if (isConfirmed || error) {
       setRecipient("");
       setAmount("");
       setDescription("");
+      reset(); 
     }
   };
 
@@ -135,12 +136,12 @@ export default function SubmitProposalModal() {
 
                   {/* Amount Input */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (ETH)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (GT)</label>
                     <div className="relative">
                        <input 
                         type="number" 
                         step="0.0001"
-                        placeholder="0.00" 
+                        placeholder="0.00"  
                         className={cn(
                           "w-full p-2 border rounded focus:ring-2 outline-none font-mono text-sm pr-12",
                           isOverLimit ? "border-red-300 focus:ring-red-200 bg-red-50" : "border-gray-300 focus:ring-blue-500"
