@@ -43,8 +43,7 @@ export function useDAO() {
       {
         address: TREASURY_ADDRESS,
         abi: ABIS.SecureTreasury,
-        functionName: "hasRole",
-        args: address ? [GUARDIAN_ROLE, address] : undefined,
+        functionName: "guardian",
       },
       // 3: Daily Limit
       {
@@ -85,13 +84,13 @@ export function useDAO() {
   // Safe Destructuring
   const paused = contractData?.[0]?.result as boolean ?? false;
   const userBalance = contractData?.[1]?.result as bigint ?? 0n;
-  const isGuardianRole = contractData?.[2]?.result as boolean ?? false;
+  const guardianAddress = contractData?.[2]?.result as string; 
   const dailyLimit = contractData?.[3]?.result as bigint ?? 0n;
   const dailyWithdrawn = contractData?.[4]?.result as bigint ?? 0n;
   const treasuryTokenBalance = contractData?.[5]?.result as bigint ?? 0n;
 
   // Role Logic
-  const isGuardian = isGuardianRole;
+  const isGuardian = address && guardianAddress ? (guardianAddress.toLowerCase() === address.toLowerCase()) : false;
   const isStakeholder = userBalance > 0n;
   
   // Derived Status

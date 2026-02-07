@@ -5,24 +5,45 @@ import { useDAO } from "../hooks/useDAO";
 import { useReadContract } from "wagmi";
 import { formatUnits } from "viem";
 import { CONTRACTS, ABIS } from "../src/constants/contracts";
+import { useEffect, useState } from "react";
 
 export default function TreasuryOverview() {
   const { dailyLimit, dailyWithdrawn } = useDAO();
+  const [mounted, setMounted] = useState(false);
 
   // Addresses
   const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
   const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Fetch Token Balance of Treasury
-  const { data: tokenBalance } = useReadContract({
+  const { data: tokenBalance, isLoading } = useReadContract({
     address: TOKEN_ADDRESS,
     abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: [TREASURY_ADDRESS],
     query: {
         refetchInterval: 5000,
+        enabled: mounted,
     }
   });
+
+  // Debug Logging
+  useEffect(() => {
+    if (mounted) {
+        console.log("💰 Treasury Overview Debug:", {
+            TREASURY_ADDRESS,
+            TOKEN_ADDRESS,
+            tokenBalance: tokenBalance ? formatUnits(tokenBalance as unknown as bigint, 18) : "loading/undefined",
+            isLoading
+        });
+    }
+  }, [mounted, tokenBalance, isLoading, TREASURY_ADDRESS, TOKEN_ADDRESS]);
+
+  if (!mounted) return <div className="p-6 text-gray-400">Loading Treasury Data...</div>;
 
   // Explicitly use formatUnits(..., 18)
   const formattedBalance = tokenBalance ? parseFloat(formatUnits(tokenBalance as unknown as bigint, 18)) : 0;
