@@ -1,112 +1,99 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseEther } from "viem";
+import { formatEther } from "viem";
 import { CONTRACTS, ABIS } from "../src/constants/contracts";
-import { Loader2, PlusCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 export default function JoinDAOButton() {
   const { address } = useAccount();
-  const [step, setStep] = useState<"idle" | "minting" | "delegating" | "done">("idle");
 
-  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
-
-  // Check Balance
+  // 1. Read Balance
   const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: TOKEN_ADDRESS,
+    address: CONTRACTS.GOVERNANCE_TOKEN,
     abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: {
+         enabled: !!address,
          refetchInterval: 5000 
     }
   });
 
-  // Write Hooks
-  const { writeContract: mintToken, data: mintHash } = useWriteContract();
-  const { writeContract: delegateToken, data: delegateHash } = useWriteContract();
-
-  // Watch Mint
-  const { isSuccess: isMinted } = useWaitForTransactionReceipt({ hash: mintHash });
-
-  // Watch Delegate
-  const { isSuccess: isDelegated } = useWaitForTransactionReceipt({ hash: delegateHash });
-
-  // Orchestration: When mint is done, trigger delegate logic
-  useEffect(() => {
-    if (isMinted && step === "minting") {
-        setStep("delegating");
-        // Trigger auto-delegate or prompt user
-        if (address) {
-            delegateToken({
-                address: TOKEN_ADDRESS,
-                abi: ABIS.GovernanceToken,
-                functionName: "delegate",
-                args: [address],
-            });
-        }
+  // 2. Read Voting Power
+  const { data: votes, refetch: refetchVotes } = useReadContract({
+    address: CONTRACTS.GOVERNANCE_TOKEN,
+    abi: ABIS.GovernanceToken,
+    functionName: "getVotes",
+    args: address ? [address] : undefined,
+     query: {
+         enabled: !!address,
+         refetchInterval: 5000 
     }
-  }, [isMinted, step, address, delegateToken, TOKEN_ADDRESS]);
+  });
 
-  // Orchestration: When delegate is done, finish
+  // 3. Write Hook (Delegate)
+  const { writeContract: delegate, data: hash, isPending: isWritePending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Refetch on Success
   useEffect(() => {
-    if (isDelegated && step === "delegating") {
-        setStep("done");
-        refetchBalance();
+    if (isSuccess) {
+      refetchBalance();
+      refetchVotes();
     }
-  }, [isDelegated, step, refetchBalance]);
+  }, [isSuccess, refetchBalance, refetchVotes]);
 
-  const handleJoin = () => {
-    if (!address) return;
-    setStep("minting");
-    mintToken({
-        address: TOKEN_ADDRESS,
-        abi: ABIS.GovernanceToken,
-        functionName: "mint",
-        args: [address, parseEther("100")],
-    });
-  };
-
-  // If user already has tokens (and we aren't in the middle of our flow), don't show
-  // Convert BigInt to number safely for simple check
-  const hasTokens = balance ? (balance as unknown as bigint) > 0n : false;
-  if (hasTokens && step === "idle") return null;
-  // If wallet isn't connected, don't show
   if (!address) return null;
 
-  return (
-    <div className="flex flex-col gap-2">
-      {step === "idle" && (
-        <button
-            onClick={handleJoin}
-            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition-all animate-in zoom-in"
-        >
-            <PlusCircle className="w-5 h-5" />
-            Join DAO (Mint 100 $GT)
-        </button>
-      )}
+  const hasBalance = balance && (balance as unknown as bigint) > 0n;
+  const hasVotingPower = votes && (votes as unknown as bigint) > 0n;
+  const isBusy = isWritePending || isConfirming;
 
-      {step === "minting" && (
-         <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm font-semibold">Minting User Tokens...</span>
-         </div>
-      )}
+  // Case 1: Inactive User (Has tokens, no voting power)
+  if (hasBalance && !hasVotingPower) {
+    return (
+      <button
+        onClick={() => delegate({
+          address: CONTRACTS.GOVERNANCE_TOKEN,
+          abi: ABIS.GovernanceToken,
+          functionName: "delegate",
+          args: [address],
+        })}
+        disabled={isBusy}
+        className="w-full sm:w-auto flex items-center justify-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all animate-in zoom-in ring-4 ring-amber-500/20"
+      >
+        {isBusy ? (
+          <>
+            <Loader2 className="w-6 h-6 animate-spin" />
+            Activating...
+          </>
+        ) : (
+          <>
+            <AlertTriangle className="w-7 h-7" />
+            <div className="flex flex-col items-start leading-tight">
+                <span>Voting Power Inactive</span>
+                <span className="text-xs font-medium opacity-90">Click to Activate {balance ? formatEther(balance as unknown as bigint) : "0"} Votes</span>
+            </div>
+          </>
+        )}
+      </button>
+    );
+  }
 
-      {step === "delegating" && (
-         <div className="flex items-center gap-2 text-purple-600 bg-purple-50 px-4 py-2 rounded-lg border border-purple-100">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm font-semibold">Activating voting power...</span>
-         </div>
-      )}
+  // Case 2: Success / Active (Has voting power)
+  if (hasVotingPower) {
+    return (
+      <div className="flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg border border-green-200 shadow-sm animate-in fade-in">
+        <CheckCircle2 className="w-5 h-5 text-green-600" />
+        <span className="font-semibold">Voting Power Active</span>
+        <span className="text-xs bg-green-200 px-2 py-0.5 rounded-full">
+            {votes ? Number(formatEther(votes as unknown as bigint)).toLocaleString() : "0"} Votes
+        </span>
+      </div>
+    );
+  }
 
-      {step === "done" && (
-         <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg border border-green-100 animate-in fade-in">
-            <CheckCircle className="w-4 h-4" />
-            <span className="text-sm font-bold">Welcome to the DAO!</span>
-         </div>
-      )}
-    </div>
-  );
+  return null;
 }
