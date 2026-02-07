@@ -68,7 +68,7 @@ export default function JoinDAOButton() {
 
   // If user already has tokens (and we aren't in the middle of our flow), don't show
   // Convert BigInt to number safely for simple check
-  const hasTokens = balance && balance > 0n;
+  const hasTokens = balance ? (balance as unknown as bigint) > 0n : false;
   if (hasTokens && step === "idle") return null;
   // If wallet isn't connected, don't show
   if (!address) return null;
