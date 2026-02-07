@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { ConnectKitButton } from "connectkit";
-import { ShieldCheck, ShieldAlert, Users, Eye, Lock, Coins } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Users, Eye, Lock, Coins, Network } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
+import { useChainId } from "wagmi";
 
 // Components
 import GovernanceAnalytics from "../components/GovernanceAnalytics";
@@ -15,6 +16,7 @@ import StakeholderActions from "../components/StakeholderActions"; // Keep if ne
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
+  const chainId = useChainId();
   const { 
     isConnected, 
     userStatus,
@@ -27,6 +29,21 @@ export default function Home() {
   }, []);
 
   if (!isMounted) return null;
+
+  // Network Guard
+  if (isConnected && chainId !== 84532) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center space-y-6">
+        <Network className="w-20 h-20 text-yellow-500 animate-pulse" />
+        <h1 className="text-3xl font-bold">Wrong Network Detected</h1>
+        <p className="text-gray-400 max-w-md">
+           This dashboard works exclusively on <span className="text-blue-400 font-bold">Base Sepolia</span>. 
+           Please switch your wallet network to continue.
+        </p>
+        <ConnectKitButton />
+      </div>
+    );
+  }
 
   // Role Badge Logic
   const getRoleBadge = () => {

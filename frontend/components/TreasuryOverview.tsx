@@ -25,6 +25,7 @@ export default function TreasuryOverview() {
     abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: [CONTRACTS.SECURE_TREASURY],
+    chainId: 84532, // Force Base Sepolia
     query: {
         enabled: !!CONTRACTS.GOVERNANCE_TOKEN,
         refetchInterval: 5000,
