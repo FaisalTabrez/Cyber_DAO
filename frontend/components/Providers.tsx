@@ -9,15 +9,13 @@ import { config } from "../config/wagmi";
 const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => setMounted(true), []);
-
+  // WagmiProvider handles SSR with ssr: true in config.
+  // We do not need to block rendering here.
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          {mounted && children}
+          {children}
         </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

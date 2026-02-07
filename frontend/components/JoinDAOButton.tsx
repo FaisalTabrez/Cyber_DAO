@@ -3,22 +3,24 @@
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther } from "viem";
-import { GovernanceTokenABI } from "../lib/abis/contracts";
-import deployedAddresses from "../src/deployed-addresses.json";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { Loader2, PlusCircle, CheckCircle } from "lucide-react";
 
 export default function JoinDAOButton() {
   const { address } = useAccount();
   const [step, setStep] = useState<"idle" | "minting" | "delegating" | "done">("idle");
 
-  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
   // Check Balance
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: TOKEN_ADDRESS,
-    abi: GovernanceTokenABI,
+    abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
+    query: {
+         refetchInterval: 5000 
+    }
   });
 
   // Write Hooks
@@ -39,7 +41,7 @@ export default function JoinDAOButton() {
         if (address) {
             delegateToken({
                 address: TOKEN_ADDRESS,
-                abi: GovernanceTokenABI,
+                abi: ABIS.GovernanceToken,
                 functionName: "delegate",
                 args: [address],
             });
@@ -60,7 +62,7 @@ export default function JoinDAOButton() {
     setStep("minting");
     mintToken({
         address: TOKEN_ADDRESS,
-        abi: GovernanceTokenABI,
+        abi: ABIS.GovernanceToken,
         functionName: "mint",
         args: [address, parseEther("100")],
     });

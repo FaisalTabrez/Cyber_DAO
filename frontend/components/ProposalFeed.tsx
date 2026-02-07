@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePublicClient, useWatchContractEvent } from "wagmi";
 import { parseAbiItem } from "viem";
-import { DAOGovernorABI } from "../lib/abis/contracts";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import ProposalCard from "./ProposalCard";
 import { Activity, Loader2 } from "lucide-react";
 
@@ -26,7 +26,7 @@ export default function ProposalFeed() {
   const [isLoading, setIsLoading] = useState(true);
   
   const publicClient = usePublicClient();
-  const GOVERNOR_ADDRESS = process.env.NEXT_PUBLIC_DAO_GOVERNOR_ADDRESS as `0x${string}`;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
 
   // 1. Fetch Past Proposals
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function ProposalFeed() {
   // 2. Watch for Real-time New Proposals
   useWatchContractEvent({
     address: GOVERNOR_ADDRESS,
-    abi: DAOGovernorABI,
+    abi: ABIS.DAOGovernor,
     eventName: "ProposalCreated",
     onLogs(logs) {
       const newProposals = logs.map(log => ({

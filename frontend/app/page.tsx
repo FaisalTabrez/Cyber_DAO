@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { ShieldCheck, ShieldAlert, Users, Eye, Lock, Coins } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
-import { formatEther } from "viem";
 
 // Components
 import GovernanceAnalytics from "../components/GovernanceAnalytics";

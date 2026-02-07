@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
 import { formatEther } from "viem";
 import {  CheckCircle, XCircle, MinusCircle, FileCode, Play, Check, AlertTriangle } from "lucide-react";
-import { DAOGovernorABI, SecureTreasuryABI } from "../lib/abis/contracts";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { analyzeProposalRisk } from "../lib/risk/RiskEngine";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -50,24 +50,24 @@ export default function ProposalCard({
   const { address } = useAccount();
   
   // Contracts from Env
-  const GOVERNOR_ADDRESS = process.env.NEXT_PUBLIC_DAO_GOVERNOR_ADDRESS as `0x${string}`;
-  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_SECURE_TREASURY_ADDRESS as `0x${string}`;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
 
   // 1. Fetch Dynamic Proposal Data (State & Votes)
   const { data: stateData, refetch: refetchState } = useReadContract({
     address: GOVERNOR_ADDRESS,
-    abi: DAOGovernorABI,
+    abi: ABIS.DAOGovernor,
     functionName: "state",
     args: [proposalId],
-    query: { enabled: !!GOVERNOR_ADDRESS }
+    query: { enabled: !!GOVERNOR_ADDRESS, refetchInterval: 5000 }
   });
 
   const { data: votesData, refetch: refetchVotes } = useReadContract({
     address: GOVERNOR_ADDRESS,
-    abi: DAOGovernorABI,
+    abi: ABIS.DAOGovernor,
     functionName: "proposalVotes",
     args: [proposalId],
-    query: { enabled: !!GOVERNOR_ADDRESS }
+    query: { enabled: !!GOVERNOR_ADDRESS, refetchInterval: 5000 }
   });
 
   // Derived State
@@ -114,7 +114,7 @@ export default function ProposalCard({
   const castVote = (support: number) => {
     writeContract({
       address: GOVERNOR_ADDRESS,
-      abi: DAOGovernorABI,
+      abi: ABIS.DAOGovernor,
       functionName: "castVote",
       args: [proposalId, support], // 0=Against, 1=For, 2=Abstain
     });

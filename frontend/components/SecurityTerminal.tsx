@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount, useReadContract, useWriteContract, useWatchContractEvent, useBalance } from "wagmi";
 import { formatEther } from "viem";
-import { SecureTreasuryABI, DAOGovernorABI } from "../lib/abis/contracts";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { Terminal, ShieldAlert, Lock, Unlock, Activity, AlertOctagon, Power, FileWarning } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -30,13 +30,13 @@ export default function SecurityTerminal() {
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Addresses from Env
-  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_SECURE_TREASURY_ADDRESS as `0x${string}`;
-  const GOVERNOR_ADDRESS = process.env.NEXT_PUBLIC_DAO_GOVERNOR_ADDRESS as `0x${string}`;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
 
   // 1. System State
   const { data: isPausedData } = useReadContract({
     address: TREASURY_ADDRESS,
-    abi: SecureTreasuryABI,
+    abi: ABIS.SecureTreasury,
     functionName: "paused",
     query: { refetchInterval: 2000, enabled: !!TREASURY_ADDRESS }
   });
@@ -50,9 +50,9 @@ export default function SecurityTerminal() {
   
   const { data: dailyLimitData } = useReadContract({
     address: TREASURY_ADDRESS,
-    abi: SecureTreasuryABI,
+    abi: ABIS.SecureTreasury,
     functionName: "dailyLimit",
-    query: { enabled: !!TREASURY_ADDRESS }
+    query: { enabled: !!TREASURY_ADDRESS, refetchInterval: 5000 }
   });
 
   const dailyLimit = dailyLimitData ? parseFloat(formatEther(dailyLimitData as bigint)) : 0;
@@ -78,7 +78,7 @@ export default function SecurityTerminal() {
   // 5. Watchers
   useWatchContractEvent({
     address: GOVERNOR_ADDRESS,
-    abi: DAOGovernorABI,
+    abi: ABIS.DAOGovernor,
     eventName: 'ProposalCreated',
     onLogs(newLogs) {
       newLogs.forEach(log => {
@@ -109,7 +109,7 @@ export default function SecurityTerminal() {
        // Resume
        writeContract({
           address: TREASURY_ADDRESS,
-          abi: SecureTreasuryABI,
+          abi: ABIS.SecureTreasury,
           functionName: "unpause", 
        }, {
          onSuccess: () => {
@@ -122,7 +122,7 @@ export default function SecurityTerminal() {
        // PAUSE (Circuit Breaker)
        writeContract({
           address: TREASURY_ADDRESS,
-          abi: SecureTreasuryABI,
+          abi: ABIS.SecureTreasury,
           functionName: "circuitBreaker",
        }, {
          onSuccess: () => addLog("CIRCUIT BREAKER ACTIVATED", "critical"),

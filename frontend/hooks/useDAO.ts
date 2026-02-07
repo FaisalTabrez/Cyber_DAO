@@ -2,9 +2,8 @@
 
 import { useAccount, useReadContracts, useBalance } from "wagmi";
 import { formatUnits, keccak256, toBytes } from "viem";
-import { SecureTreasuryABI, GovernanceTokenABI } from "../lib/abis/contracts";
+import { CONTRACTS, ABIS } from "../src/constants/contracts"; // Single source of truth
 import { useEffect, useState } from "react";
-import deployedAddresses from "../src/deployed-addresses.json";
 
 export function useDAO() {
   const { address, isConnected } = useAccount();
@@ -14,9 +13,9 @@ export function useDAO() {
     setMounted(true);
   }, []);
 
-  // Use deployed addresses from JSON for consistency
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
+  // Use Centralized Constants
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
   
   // Role Definition: keccak256("SECURITY_GUARDIAN_ROLE")
   // Verified Hash: 0x86c1afc0029e36adf493969d41f5975e93a4d76844e475dc266d5ad4f5f3f580
@@ -30,39 +29,39 @@ export function useDAO() {
       // 0: Paused Status
       {
         address: TREASURY_ADDRESS,
-        abi: SecureTreasuryABI,
+        abi: ABIS.SecureTreasury,
         functionName: "paused",
       },
       // 1: User Token Balance (Stakeholder check)
       {
         address: TOKEN_ADDRESS,
-        abi: GovernanceTokenABI,
+        abi: ABIS.GovernanceToken,
         functionName: "balanceOf",
         args: address ? [address] : undefined,
       },
       // 2: Guardian Role Check (Replaces old 'guardian' view)
       {
         address: TREASURY_ADDRESS,
-        abi: SecureTreasuryABI,
+        abi: ABIS.SecureTreasury,
         functionName: "hasRole",
         args: address ? [GUARDIAN_ROLE, address] : undefined,
       },
       // 3: Daily Limit
       {
         address: TREASURY_ADDRESS,
-        abi: SecureTreasuryABI,
+        abi: ABIS.SecureTreasury,
         functionName: "dailyLimit",
       },
       // 4: Daily Withdrawn
       {
          address: TREASURY_ADDRESS,
-         abi: SecureTreasuryABI,
+         abi: ABIS.SecureTreasury,
          functionName: "dailyWithdrawn",
       },
       // 5: Treasury Token Balance
       {
         address: TOKEN_ADDRESS,
-        abi: GovernanceTokenABI,
+        abi: ABIS.GovernanceToken,
         functionName: "balanceOf",
         args: [TREASURY_ADDRESS],
       }

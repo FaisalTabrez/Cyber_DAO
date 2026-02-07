@@ -4,22 +4,24 @@ import { Banknote, Activity } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
 import { useReadContract } from "wagmi";
 import { formatUnits } from "viem";
-import { GovernanceTokenABI } from "../lib/abis/contracts";
-import deployedAddresses from "../src/deployed-addresses.json";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 
 export default function TreasuryOverview() {
   const { dailyLimit, dailyWithdrawn } = useDAO();
 
   // Addresses
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
   // Fetch Token Balance of Treasury
   const { data: tokenBalance } = useReadContract({
     address: TOKEN_ADDRESS,
-    abi: GovernanceTokenABI,
+    abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: [TREASURY_ADDRESS],
+    query: {
+        refetchInterval: 5000,
+    }
   });
 
   // Explicitly use formatUnits(..., 18)

@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { parseEther, encodeFunctionData, formatEther, parseAbi } from "viem";
-import { SecureTreasuryABI, DAOGovernorABI } from "../lib/abis/contracts";
-import deployedAddresses from "../src/deployed-addresses.json";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { X, Loader2, CheckCircle, AlertTriangle, FileText } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -19,13 +18,13 @@ export default function SubmitProposalModal() {
   const [amount, setAmount] = useState<string>("");
   const [description, setDescription] = useState<string>("");
 
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
 
   // 1. Fetch Daily Limit for Security Warning
   const { data: dailyLimit } = useReadContract({
     address: TREASURY_ADDRESS,
-    abi: SecureTreasuryABI,
+    abi: ABIS.SecureTreasury,
     functionName: "dailyLimit",
   });
 
@@ -48,7 +47,7 @@ export default function SubmitProposalModal() {
       // 1. Encode the Treasury transfer logic
       // We assume SecureTreasury has a transfer(address,uint256) function based on requirements
       const encodedTransfer = encodeFunctionData({
-        abi: SecureTreasuryABI,
+        abi: ABIS.SecureTreasury,
         functionName: "transfer",
         args: [recipient as `0x${string}`, parseEther(amount)],
       });
@@ -56,7 +55,7 @@ export default function SubmitProposalModal() {
       // 2. Submit Proposal to Governor
       writeContract({
         address: GOVERNOR_ADDRESS,
-        abi: DAOGovernorABI,
+        abi: ABIS.DAOGovernor,
         functionName: "propose",
         args: [
           [TREASURY_ADDRESS], // Targets

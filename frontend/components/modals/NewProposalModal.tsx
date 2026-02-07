@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, encodeFunctionData } from "viem";
-import { SecureTreasuryABI, DAOGovernorABI, GovernanceTokenABI } from "../../lib/abis/contracts";
-import deployedAddresses from "../../src/deployed-addresses.json";
+import { CONTRACTS, ABIS } from "../../src/constants/contracts";
 import { X, Loader2, CheckCircle, AlertTriangle, FileText, ShieldAlert } from "lucide-react";
 import { useDAO } from "../../hooks/useDAO";
 import { clsx } from "clsx";
@@ -23,9 +22,9 @@ export default function NewProposalModal() {
   // Use DAO hook for consistent data
   const { dailyLimit, treasuryBalance, isGuardian } = useDAO();
 
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
-  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
   // Write Hook for Proposing
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -54,7 +53,7 @@ export default function NewProposalModal() {
       // BUT per user instruction: "Target: The address of the GovToken contract."
       
       const encodedTransfer = encodeFunctionData({
-        abi: GovernanceTokenABI,
+        abi: ABIS.GovernanceToken,
         functionName: "transfer",
         args: [recipient as `0x${string}`, parseEther(amount)],
       });
@@ -62,7 +61,7 @@ export default function NewProposalModal() {
       // 2. Submit Proposal
       writeContract({
         address: GOVERNOR_ADDRESS,
-        abi: DAOGovernorABI,
+        abi: ABIS.DAOGovernor,
         functionName: "propose",
         args: [
           [TOKEN_ADDRESS],    // Target: Governance Token Contract

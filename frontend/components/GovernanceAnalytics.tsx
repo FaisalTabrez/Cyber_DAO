@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useReadContract, useReadContracts } from "wagmi";
-import { formatEther, parseAbi } from "viem";
+import { useAccount, useReadContract } from "wagmi";
+import { formatEther } from "viem";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
-import { AlertTriangle, ShieldCheck, Info, User } from "lucide-react";
-import { GovernanceTokenABI } from "../lib/abis/contracts";
+import { ShieldCheck, Info, User } from "lucide-react";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -13,20 +13,14 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#E5E7EB"]; // Blue, Green, Amber, Gray
-
-// Mock addresses for demo (representing other major stakeholders)
-const MOCK_ADDRESSES = [
-  "0x1234567890123456789012345678901234567890", // Mock Whale 1
-  "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", // Mock Whale 2
-] as `0x${string}`[];
+const COLORS = ["#3B82F6", "#E5E7EB"]; // Blue, Gray
 
 export default function GovernanceAnalytics() {
   const { address } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
 
-  // Address from Env
-  const TOKEN_ADDRESS = process.env.NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS as `0x${string}`;
+  // Address from Constants
+  const TOKEN_ADDRESS = CONTRACTS.GOVERNANCE_TOKEN;
 
   useEffect(() => {
     setIsMounted(true);
@@ -35,19 +29,19 @@ export default function GovernanceAnalytics() {
   // 1. Fetch Total Supply
   const { data: totalSupplyData } = useReadContract({
     address: TOKEN_ADDRESS,
-    abi: GovernanceTokenABI,
+    abi: ABIS.GovernanceToken,
     functionName: "totalSupply",
-    query: { enabled: !!TOKEN_ADDRESS }
+    query: { enabled: !!TOKEN_ADDRESS, refetchInterval: 5000 }
   });
 
-  // 2. Fetch User & Mock Balances
-  // We'll just fetch user and supply to calculate percentage for now.
+  // 2. Fetch User Balance
+  // We'll just fetch user and supply to calculate percentage.
   const { data: userBalanceData } = useReadContract({
     address: TOKEN_ADDRESS,
-    abi: GovernanceTokenABI,
+    abi: ABIS.GovernanceToken,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!TOKEN_ADDRESS && !!address }
+    query: { enabled: !!TOKEN_ADDRESS && !!address, refetchInterval: 5000 }
   });
 
   const totalSupply = totalSupplyData ? parseFloat(formatEther(totalSupplyData as bigint)) : 0;

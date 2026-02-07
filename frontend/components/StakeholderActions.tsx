@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, encodeFunctionData, formatEther } from "viem";
-import { SecureTreasuryABI, DAOGovernorABI } from "../lib/abis/contracts";
-import deployedAddresses from "../src/deployed-addresses.json";
+import { CONTRACTS, ABIS } from "../src/constants/contracts";
 import { Loader2, CheckCircle, AlertTriangle, AlertOctagon, FileText, Send } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
 import { clsx } from "clsx";
@@ -22,8 +21,8 @@ export default function StakeholderActions() {
   // Use Custom Hook for Data
   const { isStakeholder, dailyLimit, treasuryBalance, isLoading } = useDAO();
 
-  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
-  const GOVERNOR_ADDRESS = deployedAddresses.DAOGovernor as `0x${string}`;
+  const TREASURY_ADDRESS = CONTRACTS.SECURE_TREASURY;
+  const GOVERNOR_ADDRESS = CONTRACTS.DAO_GOVERNOR;
 
   // Write Hook for Proposing
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -47,7 +46,7 @@ export default function StakeholderActions() {
     try {
       // 1. Encode SecureTreasury.withdraw(address, uint256)
       const encodedWithdraw = encodeFunctionData({
-        abi: SecureTreasuryABI,
+        abi: ABIS.SecureTreasury,
         functionName: "withdraw",
         args: [recipient as `0x${string}`, parseEther(amount)],
       });
@@ -55,7 +54,7 @@ export default function StakeholderActions() {
       // 2. Submit Proposal
       writeContract({
         address: GOVERNOR_ADDRESS,
-        abi: DAOGovernorABI,
+        abi: ABIS.DAOGovernor,
         functionName: "propose",
         args: [
           [TREASURY_ADDRESS], // Target
