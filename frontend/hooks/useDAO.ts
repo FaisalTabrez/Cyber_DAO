@@ -1,9 +1,10 @@
 "use client";
 
 import { useAccount, useReadContracts, useBalance } from "wagmi";
-import { formatEther, keccak256, toBytes } from "viem";
+import { formatUnits, keccak256, toBytes } from "viem";
 import { SecureTreasuryABI, GovernanceTokenABI } from "../lib/abis/contracts";
 import { useEffect, useState } from "react";
+import deployedAddresses from "../src/deployed-addresses.json";
 
 export function useDAO() {
   const { address, isConnected } = useAccount();
@@ -13,9 +14,9 @@ export function useDAO() {
     setMounted(true);
   }, []);
 
-  // Environment Variables for Vercel
-  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_SECURE_TREASURY_ADDRESS as `0x${string}`;
-  const TOKEN_ADDRESS = process.env.NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS as `0x${string}`;
+  // Use deployed addresses from JSON for consistency
+  const TREASURY_ADDRESS = deployedAddresses.SecureTreasury as `0x${string}`;
+  const TOKEN_ADDRESS = deployedAddresses.GovernanceToken as `0x${string}`;
   
   // Role Definition: keccak256("SECURITY_GUARDIAN_ROLE")
   // Verified Hash: 0x86c1afc0029e36adf493969d41f5975e93a4d76844e475dc266d5ad4f5f3f580
@@ -57,6 +58,13 @@ export function useDAO() {
          address: TREASURY_ADDRESS,
          abi: SecureTreasuryABI,
          functionName: "dailyWithdrawn",
+      },
+      // 5: Treasury Token Balance
+      {
+        address: TOKEN_ADDRESS,
+        abi: GovernanceTokenABI,
+        functionName: "balanceOf",
+        args: [TREASURY_ADDRESS],
       }
     ],
     query: {
@@ -66,8 +74,8 @@ export function useDAO() {
     }
   });
 
-  // 2. Fetch Native ETH Balance of Treasury
-  const { data: treasuryBalanceData } = useBalance({
+  // 2. Fetch Native ETH Balance of Treasury (Still useful for gas/stats)
+  const { data: treasuryEthBalanceData } = useBalance({
     address: TREASURY_ADDRESS,
     query: {
       refetchInterval: 10000,
@@ -81,6 +89,7 @@ export function useDAO() {
   const isGuardianRole = contractData?.[2]?.result as boolean ?? false;
   const dailyLimit = contractData?.[3]?.result as bigint ?? 0n;
   const dailyWithdrawn = contractData?.[4]?.result as bigint ?? 0n;
+  const treasuryTokenBalance = contractData?.[5]?.result as bigint ?? 0n;
 
   // Role Logic
   const isGuardian = isGuardianRole;
@@ -92,22 +101,16 @@ export function useDAO() {
   else if (isStakeholder) userStatus = "Stakeholder";
 
   return {
-    // Formatting for UI
-    treasuryBalance: treasuryBalanceData ? formatEther(treasuryBalanceData.value) : "0.0",
-    userBalance: formatEther(userBalance),
-    dailyLimit: formatEther(dailyLimit),
-    dailyWithdrawn: formatEther(dailyWithdrawn),
+    // Formatting for UI using formatUnits(val, 18) as requested
+    treasuryBalance: formatUnits(treasuryTokenBalance, 18), // Now returning GT Balance!
+    treasuryEthBalance: treasuryEthBalanceData ? formatUnits(treasuryEthBalanceData.value, 18) : "0.0",
+    userBalance: formatUnits(userBalance, 18),
+    dailyLimit: formatUnits(dailyLimit, 18), // Assuming limit is set in same decimals/units
+    dailyWithdrawn: formatUnits(dailyWithdrawn, 18),
     userStatus,
-    
-    // Status Flags
-    paused,
     isGuardian,
     isStakeholder,
-    isConnected: mounted && isConnected,
-    isLoading: isLoadingContracts && mounted,
-    
-    // Addresses
-    treasuryAddress: TREASURY_ADDRESS,
-    tokenAddress: TOKEN_ADDRESS
+    paused,
+    isLoading: isLoadingContracts
   };
 }

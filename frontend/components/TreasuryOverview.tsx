@@ -3,7 +3,7 @@
 import { Banknote, Activity } from "lucide-react";
 import { useDAO } from "../hooks/useDAO";
 import { useReadContract } from "wagmi";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 import { GovernanceTokenABI } from "../lib/abis/contracts";
 import deployedAddresses from "../src/deployed-addresses.json";
 
@@ -22,7 +22,8 @@ export default function TreasuryOverview() {
     args: [TREASURY_ADDRESS],
   });
 
-  const formattedBalance = tokenBalance ? parseFloat(formatEther(tokenBalance as unknown as bigint)) : 0;
+  // Explicitly use formatUnits(..., 18)
+  const formattedBalance = tokenBalance ? parseFloat(formatUnits(tokenBalance as unknown as bigint, 18)) : 0;
 
   // Progress Calculations (ETH Limit)
   // Note: The daily limit logic in SecureTreasury is typically for ETH withdrawals.
