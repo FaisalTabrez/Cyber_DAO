@@ -29,6 +29,9 @@ export default function TreasuryOverview() {
     query: {
         enabled: !!CONTRACTS.GOVERNANCE_TOKEN,
         refetchInterval: 5000,
+        retry: 2,
+        // @ts-ignore
+        onError: (err) => console.error('REVERT REASON (TreasuryOverview):', err)
     }
   });
 

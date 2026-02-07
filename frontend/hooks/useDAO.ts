@@ -31,6 +31,7 @@ export function useDAO() {
         address: TREASURY_ADDRESS,
         abi: ABIS.SecureTreasury,
         functionName: "paused",
+        chainId: 84532,
       },
       // 1: User Token Balance (Stakeholder check)
       {
@@ -38,24 +39,28 @@ export function useDAO() {
         abi: ABIS.GovernanceToken,
         functionName: "balanceOf",
         args: address ? [address] : undefined,
+        chainId: 84532,
       },
       // 2: Guardian Role Check (Replaces old 'guardian' view)
       {
         address: TOKEN_ADDRESS,
         abi: ABIS.GovernanceToken,
         functionName: "guardian",
+        chainId: 84532,
       },
       // 3: Daily Limit
       {
         address: TREASURY_ADDRESS,
         abi: ABIS.SecureTreasury,
         functionName: "dailyLimit",
+        chainId: 84532,
       },
       // 4: Daily Withdrawn
       {
          address: TREASURY_ADDRESS,
          abi: ABIS.SecureTreasury,
          functionName: "dailyWithdrawn",
+         chainId: 84532,
       },
       // 5: Treasury Token Balance
       {
@@ -63,12 +68,16 @@ export function useDAO() {
         abi: ABIS.GovernanceToken,
         functionName: "balanceOf",
         args: [TREASURY_ADDRESS],
+        chainId: 84532,
       }
     ],
     query: {
       refetchInterval: 5000,
       enabled: shouldFetch, 
       staleTime: 5000,
+      retry: 2,
+      // @ts-ignore
+      onError: (err) => console.error('REVERT REASON (useDAO):', err)
     }
   });
 
