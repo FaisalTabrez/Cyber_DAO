@@ -1,4 +1,5 @@
 import deployedAddresses from "../deployed-addresses.json";
+import GovTokenABI from "../abis/GovToken.json";
 
 // Single Source of Truth for Contract Addresses
 // Prioritize Environment Variables, fallback to deployed-addresses.json, then Hardcoded Fallback
@@ -36,14 +37,5 @@ export const ABIS = {
     "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
   ] as const,
 
-  GovernanceToken: [
-    "function totalSupply() view returns (uint256)",
-    "function getVotes(address account) view returns (uint256)",
-    "function balanceOf(address account) view returns (uint256)",
-    "function delegates(address account) view returns (address)",
-    "function transfer(address to, uint256 amount) external returns (bool)",
-    "function mint(address to, uint256 amount) external",
-    "function delegate(address delegatee) external",
-    "function guardian() view returns (address)"
-  ] as const
+  GovernanceToken: GovTokenABI as const
 };
