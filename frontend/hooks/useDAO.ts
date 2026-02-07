@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount, useReadContracts, useBalance } from "wagmi";
-import { formatUnits, keccak256, toBytes, getAddress } from "viem";
+import { formatUnits, keccak256, toBytes, getAddress, isAddressEqual } from "viem";
 import { CONTRACTS, ABIS } from "../src/constants/contracts"; // Single source of truth
 import { useEffect, useState } from "react";
 
@@ -41,8 +41,8 @@ export function useDAO() {
       },
       // 2: Guardian Role Check (Replaces old 'guardian' view)
       {
-        address: TREASURY_ADDRESS,
-        abi: ABIS.SecureTreasury,
+        address: TOKEN_ADDRESS,
+        abi: ABIS.GovernanceToken,
         functionName: "guardian",
       },
       // 3: Daily Limit
@@ -90,7 +90,9 @@ export function useDAO() {
   const treasuryTokenBalance = contractData?.[5]?.result as bigint ?? 0n;
 
   // Role Logic
-  const isGuardian = address && guardianAddress ? (getAddress(guardianAddress) === getAddress(address)) : false;
+  const isGuardian = address && guardianAddress 
+    ? isAddressEqual(guardianAddress as `0x${string}`, address)
+    : false;
   const isStakeholder = userBalance > 0n;
   
   // Derived Status

@@ -43,6 +43,7 @@ export const ABIS = {
     "function delegates(address account) view returns (address)",
     "function transfer(address to, uint256 amount) external returns (bool)",
     "function mint(address to, uint256 amount) external",
-    "function delegate(address delegatee) external"
+    "function delegate(address delegatee) external",
+    "function guardian() view returns (address)"
   ] as const
 };

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount, useReadContract } from "wagmi";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import { ShieldCheck, Info, User } from "lucide-react";
 import { CONTRACTS, ABIS } from "../src/constants/contracts";
@@ -44,8 +44,8 @@ export default function GovernanceAnalytics() {
     query: { enabled: !!TOKEN_ADDRESS && !!address, refetchInterval: 5000 }
   });
 
-  const totalSupply = totalSupplyData ? parseFloat(formatEther(totalSupplyData as bigint)) : 0;
-  const userBalance = userBalanceData ? parseFloat(formatEther(userBalanceData as bigint)) : 0;
+  const totalSupply = totalSupplyData ? parseFloat(formatUnits(totalSupplyData as bigint, 18)) : 0;
+  const userBalance = userBalanceData ? parseFloat(formatUnits(userBalanceData as bigint, 18)) : 0;
   
   // Calculate Distribution
   // In a real app, we'd index all holders. Here we simulate.
